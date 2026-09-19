@@ -1014,8 +1014,13 @@ function BranchSettingsCard({ branch, onSave, lang }: { branch: db.Branch; onSav
 // Inbound Page (الوارد)
 function InboundPage() {
   const { lang, refresh } = useApp();
-  const [inbounds, setInbounds] = useState(db.getInbounds());
-  const [selectedInbound, setSelectedInbound] = useState<db.Inbound | null>(null);
+  const [inbounds, setInbounds] = useState<any[]>([]);
+  const [selectedInbound, setSelectedInbound] = useState<any>(null);
+  
+  // Load data on mount
+  useEffect(() => {
+    setInbounds(db.getInbounds());
+  }, []);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     driverName: '',
@@ -1141,20 +1146,20 @@ function InboundPage() {
     setInbounds(db.getInbounds());
   };
 
-  const statusBadge = (status: db.InboundStatus) => {
-    const map: Record<db.InboundStatus, string> = {
+  const statusBadge = (status: string) => {
+    const map: Record<string, string> = {
       PENDING: 'badge-gray',
       IN_PROGRESS: 'badge-blue',
       COMPLETED: 'badge-green',
       CANCELLED: 'badge-red',
     };
-    const labels: Record<db.InboundStatus, string> = {
+    const labels: Record<string, string> = {
       PENDING: lang === 'ar' ? 'قيد الانتظار' : 'Pending',
       IN_PROGRESS: lang === 'ar' ? 'قيد التنفيذ' : 'In Progress',
       COMPLETED: lang === 'ar' ? 'مكتمل' : 'Completed',
       CANCELLED: lang === 'ar' ? 'ملغي' : 'Cancelled',
     };
-    return <span className={`badge ${map[status]}`}>{labels[status]}</span>;
+    return <span className={`badge ${map[status] || 'badge-gray'}`}>{labels[status] || status}</span>;
   };
 
   return (
@@ -1388,7 +1393,7 @@ function InboundPage() {
                     </td>
                   </tr>
                 ) : (
-                  selectedInbound.items.map(item => (
+                  selectedInbound.items.map((item: any) => (
                     <tr key={item.id}>
                       <td className="font-mono font-bold text-indigo-600">{item.itemCode}</td>
                       <td>{item.itemName}</td>
