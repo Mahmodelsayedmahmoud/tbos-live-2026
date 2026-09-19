@@ -151,12 +151,24 @@ function LoginPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    
+    console.log('Attempting login with:', { username, password: '***' });
+    
     const result = db.login(username, password);
+    
+    console.log('Login result:', result);
+    
     if (result.success && result.user) {
+      console.log('Login successful, user:', result.user);
       setUser(result.user);
       navigate('/');
     } else {
-      setError(t('login.error', lang));
+      console.error('Login failed:', result.error);
+      const errorMessage = result.error === 'missing_credentials' 
+        ? (lang === 'ar' ? 'يرجى إدخال اسم المستخدم وكلمة المرور' : 'Please enter username and password')
+        : t('login.error', lang);
+      setError(errorMessage);
     }
   };
 
@@ -241,6 +253,19 @@ function LoginPage() {
               <span className="font-medium">viewer</span> / view123
             </button>
           </div>
+          
+          {/* زر إعادة تعيين قاعدة البيانات */}
+          <button
+            onClick={() => {
+              if (confirm(lang === 'ar' ? 'هل أنت متأكد من إعادة تعيين قاعدة البيانات؟ سيتم حذف جميع البيانات.' : 'Are you sure you want to reset the database? All data will be deleted.')) {
+                db.resetDatabase();
+                window.location.reload();
+              }
+            }}
+            className="mt-3 w-full text-xs text-red-600 hover:text-red-700 hover:underline"
+          >
+            {lang === 'ar' ? 'إعادة تعيين قاعدة البيانات' : 'Reset Database'}
+          </button>
         </div>
       </div>
     </div>

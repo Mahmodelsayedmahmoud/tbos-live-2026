@@ -135,13 +135,19 @@ function loadState(): DBState {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (parsed && parsed.users && parsed.branches) {
-        return parsed;
+      // التحقق من صحة البيانات
+      if (parsed && parsed.users && parsed.branches && Array.isArray(parsed.users) && parsed.users.length > 0) {
+        // التحقق من وجود المستخدمين الافتراضيين
+        const hasAdmin = parsed.users.some((u: User) => u.username === 'admin' && u.password === 'admin123');
+        if (hasAdmin) {
+          return parsed;
+        }
       }
     }
   } catch (error) {
     console.warn('Failed to load state:', error);
   }
+  // إذا كانت البيانات تالفة أو غير موجودة، استخدم البيانات الافتراضية
   const initial = getInitialState();
   saveState(initial);
   return initial;
@@ -157,12 +163,33 @@ function saveState(state: DBState): void {
 
 let state: DBState = loadState();
 
+// التحقق من صحة قاعدة البيانات عند التحميل
+if (!validateDatabase()) {
+  console.log('Database repaired successfully');
+}
+
 // Auth
 export function login(username: string, password: string): { success: boolean; user?: User; error?: string } {
-  const user = state.users.find(u => u.username === username && u.password === password);
-  if (!user) return { success: false, error: 'invalid_credentials' };
+  // التحقق من المدخلات
+  if (!username || !password) {
+    return { success: false, error: 'missing_credentials' };
+  }
+
+  // البحث عن المستخدم
+  const user = state.users.find(u => 
+    u.username.toLowerCase() === username.toLowerCase() && 
+    u.password === password
+  );
+
+  if (!user) {
+    console.warn('Login failed: Invalid credentials for username:', username);
+    return { success: false, error: 'invalid_credentials' };
+  }
+
+  // تسجيل الدخول بنجاح
   state.currentUserId = user.id;
   saveState(state);
+  console.log('Login successful:', user.username, user.role);
   return { success: true, user };
 }
 
@@ -584,4 +611,43 @@ export function getDashboardStats(branchId?: string) {
 export function resetDatabase(): void {
   state = getInitialState();
   saveState(state);
+}
+
+// Validate and repair database
+export function validateDatabase(): boolean {
+  try {
+    // التحقق من وجود المستخدمين الأساسيين
+    const requiredUsers = ['admin', 'supervisor', 'warehouse', 'cashier', 'courier', 'viewer'];
+    const hasAllUsers = requiredUsers.every(username => 
+      state.users.some(u => u.username === username)
+    );
+
+    // التحقق من وجود الفروع
+    const hasBranches = state.branches && state.branches.length > 0;
+
+    // التحقق من وجود المندوبين
+    const hasCouriers = state.couriers && state.couriers.length > 0;
+
+    if (!hasAllUsers || !hasBranches || !hasCouriers) {
+      console.warn('Database validation failed, resetting...');
+      resetDatabase();
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Database validation error:', error);
+    resetDatabase();
+    return false;
+  }
+}
+
+// Get all users (for debugging)
+export function getAllUsers(): User[] {
+  return [...state.users];
+}
+
+// Check if user exists
+export function userExists(username: string): boolean {
+  return state.users.some(u => u.username.toLowerCase() === username.toLowerCase());
 }
