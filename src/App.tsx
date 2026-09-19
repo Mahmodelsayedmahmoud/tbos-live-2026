@@ -3,7 +3,7 @@ import { HashRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } f
 import {
   Home, LogIn, LogOut, Menu, X, Users, Truck, FileText, Settings,
   ClipboardList, Package, ArrowDownCircle, Play, Square, Clock, AlertTriangle,
-  CheckCircle, BarChart3, Layers, Globe, Zap
+  CheckCircle, BarChart3, Layers, Globe, Zap, Printer, Share2
 } from 'lucide-react';
 import { Lang, t, formatDuration, formatTime } from './lib/i18n';
 import * as db from './lib/db';
@@ -53,6 +53,9 @@ function Layout({ children }: { children: React.ReactNode }) {
     { path: '/', icon: Home, label: 'nav.home', perm: null },
     { path: '/incoming', icon: ArrowDownCircle, label: 'nav.incoming', perm: 'trips.create' },
     { path: '/couriers', icon: Truck, label: 'nav.couriers', perm: 'couriers.read' },
+    { path: '/preparation', icon: Package, label: 'nav.preparation', perm: 'workflow.start' },
+    { path: '/inventory', icon: ClipboardList, label: 'nav.inventory', perm: 'workflow.start' },
+    { path: '/loading', icon: Truck, label: 'nav.loading', perm: 'workflow.start' },
     { path: '/workflow', icon: Layers, label: 'nav.workflow', perm: 'workflow.start' },
     { path: '/trips', icon: FileText, label: 'nav.trips', perm: 'trips.read' },
     { path: '/cashier', icon: ClipboardList, label: 'nav.cashier', perm: 'cashier.read' },
@@ -129,6 +132,39 @@ function Layout({ children }: { children: React.ReactNode }) {
             <Menu size={20} />
           </button>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => window.print()}
+              className="btn btn-outline text-xs"
+              title={lang === 'ar' ? 'طباعة' : 'Print'}
+            >
+              <Printer size={16} />
+              <span className="hidden md:inline">{lang === 'ar' ? 'طباعة' : 'Print'}</span>
+            </button>
+            <button
+              onClick={async () => {
+                if (navigator.share) {
+                  try {
+                    await navigator.share({
+                      title: 'TBOS - Trans Business Operations System',
+                      text: lang === 'ar' ? 'نظام إدارة العمليات التجارية' : 'Trans Business Operations System',
+                      url: window.location.href,
+                    });
+                  } catch (err) {
+                    navigator.clipboard.writeText(window.location.href);
+                    alert(lang === 'ar' ? 'تم نسخ الرابط!' : 'Link copied!');
+                  }
+                } else {
+                  navigator.clipboard.writeText(window.location.href);
+                  alert(lang === 'ar' ? 'تم نسخ الرابط!' : 'Link copied!');
+                }
+              }}
+              className="btn btn-outline text-xs"
+              title={lang === 'ar' ? 'مشاركة' : 'Share'}
+            >
+              <Share2 size={16} />
+              <span className="hidden md:inline">{lang === 'ar' ? 'مشاركة' : 'Share'}</span>
+            </button>
+            <div className="h-6 w-px bg-gray-200"></div>
             <span className="text-sm text-gray-600">{user?.name}</span>
             <span className="badge badge-purple">{user?.role}</span>
           </div>
@@ -974,6 +1010,247 @@ function BranchSettingsCard({ branch, onSave, lang }: { branch: db.Branch; onSav
   );
 }
 
+// Preparation Page
+function PreparationPage() {
+  const { lang, refresh } = useApp();
+  const [, setTick] = useState(0);
+  const trips = db.getTrips().filter(t => (t.status === 'ACTIVE' || t.status === 'WAITING') && t.currentStage === 'PREPARATION');
+
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => refresh(), 3000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  const handleStart = (tripId: string) => {
+    const result = db.startStage(tripId, 'PREPARATION');
+    if (result.success) refresh();
+    else alert(result.error);
+  };
+
+  const handleFinish = (tripId: string) => {
+    const result = db.finishStage(tripId, 'PREPARATION');
+    if (result.success) refresh();
+    else alert(result.error);
+  };
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('nav.preparation', lang)}</h2>
+      {trips.length === 0 ? (
+        <div className="card text-center py-12 text-gray-500">
+          <Package size={48} className="mx-auto mb-4 opacity-50" />
+          <p>{t('common.no_data', lang)}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {trips.map(trip => {
+            const courier = db.getCourier(trip.courierId);
+            const branch = db.getBranch(trip.branchId);
+            const stages = db.getTripStages(trip.id);
+            const stageData = stages.find(s => s.stage === 'PREPARATION');
+            let liveDuration = 0;
+            if (stageData?.startedAt && stageData.status === 'IN_PROGRESS') {
+              liveDuration = Math.floor((Date.now() - new Date(stageData.startedAt).getTime()) / 1000);
+            }
+            return (
+              <div key={trip.id} className="card p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="font-bold text-gray-800">{courier?.name}</p>
+                    <p className="text-xs text-gray-500">{courier?.code} • {trip.tripNumber}</p>
+                  </div>
+                  <span className={`badge ${trip.status === 'ACTIVE' ? 'badge-green' : 'badge-orange'}`}>{trip.status}</span>
+                </div>
+                <div className="space-y-2 text-sm mb-3">
+                  <div className="flex justify-between"><span className="text-gray-600">{t('couriers.branch', lang)}:</span><span className="font-medium">{branch?.name}</span></div>
+                  {stageData?.status === 'IN_PROGRESS' && (
+                    <div className="flex justify-between"><span className="text-gray-600">{t('workflow.duration', lang)}:</span><span className="font-mono text-indigo-600 font-bold animate-pulse-live">{formatDuration(liveDuration, lang)}</span></div>
+                  )}
+                </div>
+                <div className="mt-4 flex gap-2">
+                  {stageData?.status === 'PENDING' && (
+                    <button onClick={() => handleStart(trip.id)} className="btn btn-success flex-1"><Play size={14} />{t('workflow.start', lang)}</button>
+                  )}
+                  {stageData?.status === 'IN_PROGRESS' && (
+                    <button onClick={() => handleFinish(trip.id)} className="btn btn-danger flex-1"><Square size={14} />{t('workflow.finish', lang)}</button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Inventory Page
+function InventoryPage() {
+  const { lang, refresh } = useApp();
+  const [, setTick] = useState(0);
+  const trips = db.getTrips().filter(t => (t.status === 'ACTIVE' || t.status === 'WAITING') && t.currentStage === 'INVENTORY');
+
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => refresh(), 3000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  const handleStart = (tripId: string) => {
+    const result = db.startStage(tripId, 'INVENTORY');
+    if (result.success) refresh();
+    else alert(result.error);
+  };
+
+  const handleFinish = (tripId: string) => {
+    const result = db.finishStage(tripId, 'INVENTORY');
+    if (result.success) refresh();
+    else alert(result.error);
+  };
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('nav.inventory', lang)}</h2>
+      {trips.length === 0 ? (
+        <div className="card text-center py-12 text-gray-500">
+          <ClipboardList size={48} className="mx-auto mb-4 opacity-50" />
+          <p>{t('common.no_data', lang)}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {trips.map(trip => {
+            const courier = db.getCourier(trip.courierId);
+            const branch = db.getBranch(trip.branchId);
+            const stages = db.getTripStages(trip.id);
+            const stageData = stages.find(s => s.stage === 'INVENTORY');
+            let liveDuration = 0;
+            if (stageData?.startedAt && stageData.status === 'IN_PROGRESS') {
+              liveDuration = Math.floor((Date.now() - new Date(stageData.startedAt).getTime()) / 1000);
+            }
+            return (
+              <div key={trip.id} className="card p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="font-bold text-gray-800">{courier?.name}</p>
+                    <p className="text-xs text-gray-500">{courier?.code} • {trip.tripNumber}</p>
+                  </div>
+                  <span className={`badge ${trip.status === 'ACTIVE' ? 'badge-green' : 'badge-orange'}`}>{trip.status}</span>
+                </div>
+                <div className="space-y-2 text-sm mb-3">
+                  <div className="flex justify-between"><span className="text-gray-600">{t('couriers.branch', lang)}:</span><span className="font-medium">{branch?.name}</span></div>
+                  {stageData?.status === 'IN_PROGRESS' && (
+                    <div className="flex justify-between"><span className="text-gray-600">{t('workflow.duration', lang)}:</span><span className="font-mono text-indigo-600 font-bold animate-pulse-live">{formatDuration(liveDuration, lang)}</span></div>
+                  )}
+                </div>
+                <div className="mt-4 flex gap-2">
+                  {stageData?.status === 'PENDING' && (
+                    <button onClick={() => handleStart(trip.id)} className="btn btn-success flex-1"><Play size={14} />{t('workflow.start', lang)}</button>
+                  )}
+                  {stageData?.status === 'IN_PROGRESS' && (
+                    <button onClick={() => handleFinish(trip.id)} className="btn btn-danger flex-1"><Square size={14} />{t('workflow.finish', lang)}</button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Loading Page
+function LoadingPage() {
+  const { lang, refresh } = useApp();
+  const [, setTick] = useState(0);
+  const trips = db.getTrips().filter(t => (t.status === 'ACTIVE' || t.status === 'WAITING') && t.currentStage === 'LOADING');
+
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => refresh(), 3000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  const handleStart = (tripId: string) => {
+    const result = db.startStage(tripId, 'LOADING');
+    if (result.success) refresh();
+    else alert(result.error);
+  };
+
+  const handleFinish = (tripId: string) => {
+    const result = db.finishStage(tripId, 'LOADING');
+    if (result.success) {
+      db.runDecisionEngine(tripId);
+      refresh();
+    } else {
+      alert(result.error);
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('nav.loading', lang)}</h2>
+      {trips.length === 0 ? (
+        <div className="card text-center py-12 text-gray-500">
+          <Truck size={48} className="mx-auto mb-4 opacity-50" />
+          <p>{t('common.no_data', lang)}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {trips.map(trip => {
+            const courier = db.getCourier(trip.courierId);
+            const branch = db.getBranch(trip.branchId);
+            const stages = db.getTripStages(trip.id);
+            const stageData = stages.find(s => s.stage === 'LOADING');
+            let liveDuration = 0;
+            if (stageData?.startedAt && stageData.status === 'IN_PROGRESS') {
+              liveDuration = Math.floor((Date.now() - new Date(stageData.startedAt).getTime()) / 1000);
+            }
+            return (
+              <div key={trip.id} className="card p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="font-bold text-gray-800">{courier?.name}</p>
+                    <p className="text-xs text-gray-500">{courier?.code} • {trip.tripNumber}</p>
+                  </div>
+                  <span className={`badge ${trip.status === 'ACTIVE' ? 'badge-green' : 'badge-orange'}`}>{trip.status}</span>
+                </div>
+                <div className="space-y-2 text-sm mb-3">
+                  <div className="flex justify-between"><span className="text-gray-600">{t('couriers.branch', lang)}:</span><span className="font-medium">{branch?.name}</span></div>
+                  {stageData?.status === 'IN_PROGRESS' && (
+                    <div className="flex justify-between"><span className="text-gray-600">{t('workflow.duration', lang)}:</span><span className="font-mono text-indigo-600 font-bold animate-pulse-live">{formatDuration(liveDuration, lang)}</span></div>
+                  )}
+                </div>
+                <div className="mt-4 flex gap-2">
+                  {stageData?.status === 'PENDING' && (
+                    <button onClick={() => handleStart(trip.id)} className="btn btn-success flex-1"><Play size={14} />{t('workflow.start', lang)}</button>
+                  )}
+                  {stageData?.status === 'IN_PROGRESS' && (
+                    <button onClick={() => handleFinish(trip.id)} className="btn btn-danger flex-1"><Square size={14} />{t('workflow.finish', lang)}</button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Main App
 export default function App() {
   const [lang, setLang] = useState<Lang>('ar');
@@ -1008,6 +1285,9 @@ export default function App() {
           } />
           <Route path="/incoming" element={<ProtectedRoute><Layout><IncomingPage /></Layout></ProtectedRoute>} />
           <Route path="/couriers" element={<ProtectedRoute><Layout><CouriersPage /></Layout></ProtectedRoute>} />
+          <Route path="/preparation" element={<ProtectedRoute><Layout><PreparationPage /></Layout></ProtectedRoute>} />
+          <Route path="/inventory" element={<ProtectedRoute><Layout><InventoryPage /></Layout></ProtectedRoute>} />
+          <Route path="/loading" element={<ProtectedRoute><Layout><LoadingPage /></Layout></ProtectedRoute>} />
           <Route path="/trips" element={<ProtectedRoute><Layout><TripsPage /></Layout></ProtectedRoute>} />
           <Route path="/workflow" element={<ProtectedRoute><Layout><WorkflowPage /></Layout></ProtectedRoute>} />
           <Route path="/cashier" element={<ProtectedRoute><Layout><CashierPage /></Layout></ProtectedRoute>} />
