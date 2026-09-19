@@ -597,7 +597,7 @@ function CouriersPage() {
   const { lang } = useApp();
   const [couriers, setCouriers] = useState(db.getCouriers());
   const [search, setSearch] = useState('');
-  const branches = db.getBranches();
+  const branches = db.getBranches() || [];
 
   const filtered = couriers.filter(c =>
     c.name.includes(search) || c.code.includes(search)
@@ -1045,7 +1045,7 @@ function InboundPage() {
     let interval: number;
     if (isTimerRunning && selectedInbound?.startedAt) {
       interval = window.setInterval(() => {
-        const start = new Date(selectedInbound.startedAt!).getTime();
+        const start = new Date(selectedInbound.startedAt).getTime();
         setElapsedTime(Math.floor((Date.now() - start) / 1000));
       }, 1000);
     }
@@ -1148,16 +1148,16 @@ function InboundPage() {
 
   const statusBadge = (status: string) => {
     const map: Record<string, string> = {
-      PENDING: 'badge-gray',
-      IN_PROGRESS: 'badge-blue',
-      COMPLETED: 'badge-green',
-      CANCELLED: 'badge-red',
+      'PENDING': 'badge-gray',
+      'IN_PROGRESS': 'badge-blue',
+      'COMPLETED': 'badge-green',
+      'CANCELLED': 'badge-red',
     };
     const labels: Record<string, string> = {
-      PENDING: lang === 'ar' ? 'قيد الانتظار' : 'Pending',
-      IN_PROGRESS: lang === 'ar' ? 'قيد التنفيذ' : 'In Progress',
-      COMPLETED: lang === 'ar' ? 'مكتمل' : 'Completed',
-      CANCELLED: lang === 'ar' ? 'ملغي' : 'Cancelled',
+      'PENDING': lang === 'ar' ? 'قيد الانتظار' : 'Pending',
+      'IN_PROGRESS': lang === 'ar' ? 'قيد التنفيذ' : 'In Progress',
+      'COMPLETED': lang === 'ar' ? 'مكتمل' : 'Completed',
+      'CANCELLED': lang === 'ar' ? 'ملغي' : 'Cancelled',
     };
     return <span className={`badge ${map[status] || 'badge-gray'}`}>{labels[status] || status}</span>;
   };
@@ -1273,14 +1273,14 @@ function InboundPage() {
                 <Package size={24} className="text-white" />
               </div>
               <div>
-                <h3 className="font-bold text-gray-800 text-lg">{selectedInbound.inboundNumber}</h3>
+                <h3 className="font-bold text-gray-800 text-lg">{selectedInbound.inboundNumber || '-'}</h3>
                 <p className="text-sm text-gray-500">
-                  {selectedInbound.driverName} • {selectedInbound.containerNumber}
+                  {selectedInbound.driverName || '-'} • {selectedInbound.containerNumber || '-'}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              {statusBadge(selectedInbound.status)}
+              {statusBadge(selectedInbound.status || 'PENDING')}
               {selectedInbound.status === 'IN_PROGRESS' && (
                 <div className="text-2xl font-mono font-bold text-indigo-600 animate-pulse-live">
                   {formatDuration(elapsedTime, lang)}
@@ -1293,19 +1293,19 @@ function InboundPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             <div className="p-3 rounded-lg bg-gray-50">
               <p className="text-xs text-gray-500">{lang === 'ar' ? 'السائق' : 'Driver'}</p>
-              <p className="font-semibold text-gray-800">{selectedInbound.driverName}</p>
+              <p className="font-semibold text-gray-800">{selectedInbound.driverName || '-'}</p>
             </div>
             <div className="p-3 rounded-lg bg-gray-50">
               <p className="text-xs text-gray-500">{lang === 'ar' ? 'كود السائق' : 'Driver Code'}</p>
-              <p className="font-semibold text-gray-800">{selectedInbound.driverCode}</p>
+              <p className="font-semibold text-gray-800">{selectedInbound.driverCode || '-'}</p>
             </div>
             <div className="p-3 rounded-lg bg-gray-50">
               <p className="text-xs text-gray-500">{lang === 'ar' ? 'الحاوية' : 'Container'}</p>
-              <p className="font-semibold text-gray-800">{selectedInbound.containerNumber}</p>
+              <p className="font-semibold text-gray-800">{selectedInbound.containerNumber || '-'}</p>
             </div>
             <div className="p-3 rounded-lg bg-gray-50">
               <p className="text-xs text-gray-500">{lang === 'ar' ? 'النوع' : 'Type'}</p>
-              <p className="font-semibold text-gray-800">{selectedInbound.containerType}</p>
+              <p className="font-semibold text-gray-800">{selectedInbound.containerType || '-'}</p>
             </div>
           </div>
 
@@ -1386,7 +1386,7 @@ function InboundPage() {
                 </tr>
               </thead>
               <tbody>
-                {selectedInbound.items.length === 0 ? (
+                {!selectedInbound.items || selectedInbound.items.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="text-center text-gray-400 py-8">
                       {lang === 'ar' ? 'لا توجد أصناف مضافة' : 'No items added'}
@@ -1437,22 +1437,22 @@ function InboundPage() {
               </tr>
             </thead>
             <tbody>
-              {inbounds.length === 0 ? (
+              {!inbounds || inbounds.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="text-center text-gray-400 py-8">
                     {lang === 'ar' ? 'لا يوجد وارد مسجل' : 'No inbound records'}
                   </td>
                 </tr>
               ) : (
-                inbounds.map(inbound => (
+                inbounds.map((inbound: any) => (
                   <tr key={inbound.id}>
-                    <td className="font-mono font-bold text-indigo-600">{inbound.inboundNumber}</td>
-                    <td>{inbound.driverName}</td>
-                    <td>{inbound.containerNumber}</td>
-                    <td>{inbound.containerType}</td>
-                    <td>{inbound.items.length}</td>
-                    <td>{statusBadge(inbound.status)}</td>
-                    <td className="text-gray-500">{formatTime(inbound.createdAt, lang)}</td>
+                    <td className="font-mono font-bold text-indigo-600">{inbound.inboundNumber || '-'}</td>
+                    <td>{inbound.driverName || '-'}</td>
+                    <td>{inbound.containerNumber || '-'}</td>
+                    <td>{inbound.containerType || '-'}</td>
+                    <td>{inbound.items ? inbound.items.length : 0}</td>
+                    <td>{statusBadge(inbound.status || 'PENDING')}</td>
+                    <td className="text-gray-500">{inbound.createdAt ? formatTime(inbound.createdAt, lang) : '-'}</td>
                     <td>
                       <button
                         onClick={() => setSelectedInbound(inbound)}

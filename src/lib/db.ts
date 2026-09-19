@@ -170,6 +170,9 @@ function loadState(): DBState {
         // التحقق من وجود المستخدمين الافتراضيين
         const hasAdmin = parsed.users.some((u: User) => u.username === 'admin' && u.password === 'admin123');
         if (hasAdmin) {
+          // إضافة الحقول المفقودة للبيانات القديمة
+          if (!parsed.inbound) parsed.inbound = [];
+          if (!parsed.nextInboundNumber) parsed.nextInboundNumber = 1;
           return parsed;
         }
       }
@@ -658,6 +661,10 @@ export function validateDatabase(): boolean {
     // التحقق من وجود المندوبين
     const hasCouriers = state.couriers && state.couriers.length > 0;
 
+    // التحقق من وجود inbound
+    if (!state.inbound) state.inbound = [];
+    if (!state.nextInboundNumber) state.nextInboundNumber = 1;
+
     if (!hasAllUsers || !hasBranches || !hasCouriers) {
       console.warn('Database validation failed, resetting...');
       resetDatabase();
@@ -685,12 +692,14 @@ export function userExists(username: string): boolean {
 // ============ INBOUND OPERATIONS ============
 
 export function getInbounds(branchId?: string): Inbound[] {
+  if (!state.inbound) state.inbound = [];
   let items = [...state.inbound];
   if (branchId) items = items.filter(i => i.branchId === branchId);
   return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 export function getInbound(id: string): Inbound | undefined {
+  if (!state.inbound) return undefined;
   return state.inbound.find(i => i.id === id);
 }
 

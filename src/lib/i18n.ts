@@ -119,6 +119,7 @@ export function t(key: string, lang: Lang): string {
 }
 
 export function formatDuration(seconds: number, lang: Lang): string {
+  if (isNaN(seconds) || seconds < 0) return `0 ${t('common.seconds', lang)}`;
   if (seconds < 60) return `${seconds} ${t('common.seconds', lang)}`;
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -126,6 +127,11 @@ export function formatDuration(seconds: number, lang: Lang): string {
 }
 
 export function formatTime(date: Date | string, lang: Lang): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleTimeString(lang === 'ar' ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+  try {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleTimeString(lang === 'ar' ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return '-';
+  }
 }
