@@ -4,6 +4,7 @@ export type UserRole = 'ADMIN' | 'SUPERVISOR' | 'WAREHOUSE' | 'CASHIER' | 'COURI
 export type CourierStatus = 'AVAILABLE' | 'ON_TRIP' | 'WAITING' | 'IN_CASHIER' | 'COMPLETED';
 export type TripStatus = 'ACTIVE' | 'WAITING' | 'COMPLETED' | 'CANCELLED';
 export type StageName = 'ENTRY' | 'DOCK' | 'PREPARATION' | 'INVENTORY' | 'LOADING' | 'DECISION' | 'CASHIER' | 'COMPLETED';
+export type InboundStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
 export interface User {
   id: string;
@@ -79,6 +80,31 @@ export interface SystemDecision {
   createdAt: string;
 }
 
+export interface InboundItem {
+  id: string;
+  inboundId: string;
+  itemName: string;
+  itemCode: string;
+  quantity: number;
+  unit: string;
+  notes: string;
+}
+
+export interface Inbound {
+  id: string;
+  inboundNumber: string;
+  driverName: string;
+  driverCode: string;
+  containerNumber: string;
+  containerType: string;
+  branchId: string;
+  status: InboundStatus;
+  startedAt: string | null;
+  completedAt: string | null;
+  items: InboundItem[];
+  createdAt: string;
+}
+
 interface DBState {
   users: User[];
   branches: Branch[];
@@ -87,9 +113,11 @@ interface DBState {
   tripStages: TripStage[];
   queue: QueueRecord[];
   decisions: SystemDecision[];
+  inbound: Inbound[];
   currentUserId: string | null;
   nextTripNumber: number;
   nextQueueNumber: number;
+  nextInboundNumber: number;
 }
 
 const STORAGE_KEY = 'tbos_db';
@@ -124,9 +152,11 @@ function getInitialState(): DBState {
     tripStages: [],
     queue: [],
     decisions: [],
+    inbound: [],
     currentUserId: null,
     nextTripNumber: 1,
     nextQueueNumber: 1,
+    nextInboundNumber: 1,
   };
 }
 
@@ -650,4 +680,102 @@ export function getAllUsers(): User[] {
 // Check if user exists
 export function userExists(username: string): boolean {
   return state.users.some(u => u.username.toLowerCase() === username.toLowerCase());
+}
+
+// ============ INBOUND OPERATIONS ============
+
+export function getInbounds(branchId?: string): Inbound[] {
+  let items = [...state.inbound];
+  if (branchId) items = items.filter(i => i.branchId === branchId);
+  return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export function getInbound(id: string): Inbound | undefined {
+  return state.inbound.find(i => i.id === id);
+}
+
+export function createInbound(
+  driverName: string,
+  driverCode: string,
+  containerNumber: string,
+  containerType: string,
+  branchId: string
+): Inbound {
+  const inboundNumber = `INB-${String(state.nextInboundNumber).padStart(4, '0')}`;
+  state.nextInboundNumber++;
+
+  const inbound: Inbound = {
+    id: generateId(),
+    inboundNumber,
+    driverName,
+    driverCode,
+    containerNumber,
+    containerType,
+    branchId,
+    status: 'PENDING',
+    startedAt: null,
+    completedAt: null,
+    items: [],
+    createdAt: new Date().toISOString(),
+  };
+  state.inbound.push(inbound);
+  saveState(state);
+  return inbound;
+}
+
+export function startInbound(id: string): Inbound | null {
+  const idx = state.inbound.findIndex(i => i.id === id);
+  if (idx === -1) return null;
+  
+  state.inbound[idx].status = 'IN_PROGRESS';
+  state.inbound[idx].startedAt = new Date().toISOString();
+  saveState(state);
+  return state.inbound[idx];
+}
+
+export function completeInbound(id: string): Inbound | null {
+  const idx = state.inbound.findIndex(i => i.id === id);
+  if (idx === -1) return null;
+  
+  state.inbound[idx].status = 'COMPLETED';
+  state.inbound[idx].completedAt = new Date().toISOString();
+  saveState(state);
+  return state.inbound[idx];
+}
+
+export function addInboundItem(
+  inboundId: string,
+  itemName: string,
+  itemCode: string,
+  quantity: number,
+  unit: string,
+  notes: string = ''
+): InboundItem | null {
+  const inbound = state.inbound.find(i => i.id === inboundId);
+  if (!inbound) return null;
+
+  const item: InboundItem = {
+    id: generateId(),
+    inboundId,
+    itemName,
+    itemCode,
+    quantity,
+    unit,
+    notes,
+  };
+  inbound.items.push(item);
+  saveState(state);
+  return item;
+}
+
+export function removeInboundItem(inboundId: string, itemId: string): boolean {
+  const inbound = state.inbound.find(i => i.id === inboundId);
+  if (!inbound) return false;
+
+  const idx = inbound.items.findIndex(it => it.id === itemId);
+  if (idx === -1) return false;
+
+  inbound.items.splice(idx, 1);
+  saveState(state);
+  return true;
 }

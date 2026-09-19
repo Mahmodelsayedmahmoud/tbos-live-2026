@@ -51,6 +51,7 @@ function Layout({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { path: '/', icon: Home, label: 'nav.home', perm: null },
+    { path: '/inbound', icon: Package, label: 'nav.inbound', perm: 'trips.create' },
     { path: '/incoming', icon: ArrowDownCircle, label: 'nav.incoming', perm: 'trips.create' },
     { path: '/couriers', icon: Truck, label: 'nav.couriers', perm: 'couriers.read' },
     { path: '/preparation', icon: Package, label: 'nav.preparation', perm: 'workflow.start' },
@@ -1010,6 +1011,462 @@ function BranchSettingsCard({ branch, onSave, lang }: { branch: db.Branch; onSav
   );
 }
 
+// Inbound Page (الوارد)
+function InboundPage() {
+  const { lang, refresh } = useApp();
+  const [inbounds, setInbounds] = useState(db.getInbounds());
+  const [selectedInbound, setSelectedInbound] = useState<db.Inbound | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({
+    driverName: '',
+    driverCode: '',
+    containerNumber: '',
+    containerType: '20ft',
+    branchId: '',
+  });
+  const [itemForm, setItemForm] = useState({
+    itemName: '',
+    itemCode: '',
+    quantity: '',
+    unit: 'قطعة',
+    notes: '',
+  });
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const branches = db.getBranches();
+
+  // Live timer
+  useEffect(() => {
+    let interval: number;
+    if (isTimerRunning && selectedInbound?.startedAt) {
+      interval = window.setInterval(() => {
+        const start = new Date(selectedInbound.startedAt!).getTime();
+        setElapsedTime(Math.floor((Date.now() - start) / 1000));
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isTimerRunning, selectedInbound]);
+
+  // Auto-refresh
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setInbounds(db.getInbounds());
+      refresh();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  const handleCreate = () => {
+    if (!formData.driverName || !formData.driverCode || !formData.containerNumber || !formData.branchId) {
+      alert(lang === 'ar' ? 'يرجى ملء جميع الحقول المطلوبة' : 'Please fill all required fields');
+      return;
+    }
+
+    const newInbound = db.createInbound(
+      formData.driverName,
+      formData.driverCode,
+      formData.containerNumber,
+      formData.containerType,
+      formData.branchId
+    );
+    
+    setInbounds(db.getInbounds());
+    setSelectedInbound(newInbound);
+    setShowForm(false);
+    setFormData({
+      driverName: '',
+      driverCode: '',
+      containerNumber: '',
+      containerType: '20ft',
+      branchId: '',
+    });
+  };
+
+  const handleStart = () => {
+    if (!selectedInbound) return;
+    const updated = db.startInbound(selectedInbound.id);
+    if (updated) {
+      setSelectedInbound(updated);
+      setInbounds(db.getInbounds());
+      setIsTimerRunning(true);
+      setElapsedTime(0);
+    }
+  };
+
+  const handleComplete = () => {
+    if (!selectedInbound) return;
+    const updated = db.completeInbound(selectedInbound.id);
+    if (updated) {
+      setSelectedInbound(updated);
+      setInbounds(db.getInbounds());
+      setIsTimerRunning(false);
+    }
+  };
+
+  const handleAddItem = () => {
+    if (!selectedInbound) return;
+    const quantityNum = parseInt(itemForm.quantity);
+    if (!itemForm.itemName || !itemForm.itemCode || !itemForm.quantity || quantityNum <= 0) {
+      alert(lang === 'ar' ? 'يرجى ملء جميع الحقول المطلوبة' : 'Please fill all required fields');
+      return;
+    }
+
+    db.addInboundItem(
+      selectedInbound.id,
+      itemForm.itemName,
+      itemForm.itemCode,
+      quantityNum,
+      itemForm.unit,
+      itemForm.notes
+    );
+
+    const updated = db.getInbound(selectedInbound.id);
+    if (updated) setSelectedInbound(updated);
+    setInbounds(db.getInbounds());
+    
+    setItemForm({
+      itemName: '',
+      itemCode: '',
+      quantity: '',
+      unit: 'قطعة',
+      notes: '',
+    });
+  };
+
+  const handleRemoveItem = (itemId: string) => {
+    if (!selectedInbound) return;
+    db.removeInboundItem(selectedInbound.id, itemId);
+    const updated = db.getInbound(selectedInbound.id);
+    if (updated) setSelectedInbound(updated);
+    setInbounds(db.getInbounds());
+  };
+
+  const statusBadge = (status: db.InboundStatus) => {
+    const map: Record<db.InboundStatus, string> = {
+      PENDING: 'badge-gray',
+      IN_PROGRESS: 'badge-blue',
+      COMPLETED: 'badge-green',
+      CANCELLED: 'badge-red',
+    };
+    const labels: Record<db.InboundStatus, string> = {
+      PENDING: lang === 'ar' ? 'قيد الانتظار' : 'Pending',
+      IN_PROGRESS: lang === 'ar' ? 'قيد التنفيذ' : 'In Progress',
+      COMPLETED: lang === 'ar' ? 'مكتمل' : 'Completed',
+      CANCELLED: lang === 'ar' ? 'ملغي' : 'Cancelled',
+    };
+    return <span className={`badge ${map[status]}`}>{labels[status]}</span>;
+  };
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+            <Package className="text-indigo-500" size={28} />
+            {lang === 'ar' ? 'الوارد' : 'Inbound'}
+          </h2>
+          <p className="text-gray-500 mt-1">
+            {lang === 'ar' ? 'إدارة الكونتينرات والبضائع الواردة' : 'Manage containers and incoming goods'}
+          </p>
+        </div>
+        <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">
+          {lang === 'ar' ? 'وارد جديد' : 'New Inbound'}
+        </button>
+      </div>
+
+      {/* Create Form */}
+      {showForm && (
+        <div className="card p-6">
+          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <FileText size={18} className="text-indigo-500" />
+            {lang === 'ar' ? 'تسجيل وارد جديد' : 'Register New Inbound'}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'ar' ? 'اسم السائق' : 'Driver Name'} *
+              </label>
+              <input
+                value={formData.driverName}
+                onChange={e => setFormData({ ...formData, driverName: e.target.value })}
+                className="input"
+                placeholder={lang === 'ar' ? 'أدخل اسم السائق' : 'Enter driver name'}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'ar' ? 'كود السائق' : 'Driver Code'} *
+              </label>
+              <input
+                value={formData.driverCode}
+                onChange={e => setFormData({ ...formData, driverCode: e.target.value })}
+                className="input"
+                placeholder={lang === 'ar' ? 'أدخل كود السائق' : 'Enter driver code'}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'ar' ? 'رقم الحاوية' : 'Container Number'} *
+              </label>
+              <input
+                value={formData.containerNumber}
+                onChange={e => setFormData({ ...formData, containerNumber: e.target.value })}
+                className="input"
+                placeholder={lang === 'ar' ? 'مثال: CONT-12345' : 'Example: CONT-12345'}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'ar' ? 'نوع الحاوية' : 'Container Type'}
+              </label>
+              <select
+                value={formData.containerType}
+                onChange={e => setFormData({ ...formData, containerType: e.target.value })}
+                className="input"
+              >
+                <option value="20ft">20ft</option>
+                <option value="40ft">40ft</option>
+                <option value="40ft HC">40ft HC</option>
+                <option value="Reefer">Reefer</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'ar' ? 'الفرع' : 'Branch'} *
+              </label>
+              <select
+                value={formData.branchId}
+                onChange={e => setFormData({ ...formData, branchId: e.target.value })}
+                className="input"
+              >
+                <option value="">-- اختر الفرع --</option>
+                {branches.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <button onClick={handleCreate} className="btn btn-success">
+              <CheckCircle size={16} />
+              {lang === 'ar' ? 'إنشاء' : 'Create'}
+            </button>
+            <button onClick={() => setShowForm(false)} className="btn btn-outline">
+              {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tracking Card */}
+      {selectedInbound && (
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md">
+                <Package size={24} className="text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-800 text-lg">{selectedInbound.inboundNumber}</h3>
+                <p className="text-sm text-gray-500">
+                  {selectedInbound.driverName} • {selectedInbound.containerNumber}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {statusBadge(selectedInbound.status)}
+              {selectedInbound.status === 'IN_PROGRESS' && (
+                <div className="text-2xl font-mono font-bold text-indigo-600 animate-pulse-live">
+                  {formatDuration(elapsedTime, lang)}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Info Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="p-3 rounded-lg bg-gray-50">
+              <p className="text-xs text-gray-500">{lang === 'ar' ? 'السائق' : 'Driver'}</p>
+              <p className="font-semibold text-gray-800">{selectedInbound.driverName}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-gray-50">
+              <p className="text-xs text-gray-500">{lang === 'ar' ? 'كود السائق' : 'Driver Code'}</p>
+              <p className="font-semibold text-gray-800">{selectedInbound.driverCode}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-gray-50">
+              <p className="text-xs text-gray-500">{lang === 'ar' ? 'الحاوية' : 'Container'}</p>
+              <p className="font-semibold text-gray-800">{selectedInbound.containerNumber}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-gray-50">
+              <p className="text-xs text-gray-500">{lang === 'ar' ? 'النوع' : 'Type'}</p>
+              <p className="font-semibold text-gray-800">{selectedInbound.containerType}</p>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2">
+            {selectedInbound.status === 'PENDING' && (
+              <button onClick={handleStart} className="btn btn-success">
+                <Play size={16} />
+                {lang === 'ar' ? 'بدء الوارد' : 'Start Inbound'}
+              </button>
+            )}
+            {selectedInbound.status === 'IN_PROGRESS' && (
+              <button onClick={handleComplete} className="btn btn-primary">
+                <CheckCircle size={16} />
+                {lang === 'ar' ? 'إكمال الوارد' : 'Complete Inbound'}
+              </button>
+            )}
+            <button onClick={() => setSelectedInbound(null)} className="btn btn-outline">
+              {lang === 'ar' ? 'إغلاق' : 'Close'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Items Table */}
+      {selectedInbound && selectedInbound.status === 'IN_PROGRESS' && (
+        <div className="card p-6">
+          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <ClipboardList size={18} className="text-indigo-500" />
+            {lang === 'ar' ? 'الأصناف الواردة' : 'Inbound Items'} ({selectedInbound.items.length})
+          </h3>
+
+          {/* Add Item Form */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4 p-4 bg-gray-50 rounded-lg">
+            <input
+              value={itemForm.itemName}
+              onChange={e => setItemForm({ ...itemForm, itemName: e.target.value })}
+              className="input"
+              placeholder={lang === 'ar' ? 'اسم الصنف' : 'Item Name'}
+            />
+            <input
+              value={itemForm.itemCode}
+              onChange={e => setItemForm({ ...itemForm, itemCode: e.target.value })}
+              className="input"
+              placeholder={lang === 'ar' ? 'كود الصنف' : 'Item Code'}
+            />
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={itemForm.quantity}
+              onChange={e => setItemForm({ ...itemForm, quantity: e.target.value })}
+              className="input"
+              placeholder={lang === 'ar' ? 'الكمية' : 'Quantity'}
+            />
+            <input
+              value={itemForm.unit}
+              onChange={e => setItemForm({ ...itemForm, unit: e.target.value })}
+              className="input"
+              placeholder={lang === 'ar' ? 'الوحدة' : 'Unit'}
+            />
+            <button onClick={handleAddItem} className="btn btn-success">
+              {lang === 'ar' ? 'إضافة' : 'Add'}
+            </button>
+          </div>
+
+          {/* Items Table */}
+          <div className="overflow-x-auto">
+            <table>
+              <thead>
+                <tr>
+                  <th>{lang === 'ar' ? 'كود الصنف' : 'Item Code'}</th>
+                  <th>{lang === 'ar' ? 'اسم الصنف' : 'Item Name'}</th>
+                  <th>{lang === 'ar' ? 'الكمية' : 'Quantity'}</th>
+                  <th>{lang === 'ar' ? 'الوحدة' : 'Unit'}</th>
+                  <th>{lang === 'ar' ? 'ملاحظات' : 'Notes'}</th>
+                  <th>{lang === 'ar' ? 'إجراءات' : 'Actions'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {selectedInbound.items.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center text-gray-400 py-8">
+                      {lang === 'ar' ? 'لا توجد أصناف مضافة' : 'No items added'}
+                    </td>
+                  </tr>
+                ) : (
+                  selectedInbound.items.map(item => (
+                    <tr key={item.id}>
+                      <td className="font-mono font-bold text-indigo-600">{item.itemCode}</td>
+                      <td>{item.itemName}</td>
+                      <td className="font-bold">{item.quantity}</td>
+                      <td>{item.unit}</td>
+                      <td className="text-gray-500">{item.notes || '-'}</td>
+                      <td>
+                        <button
+                          onClick={() => handleRemoveItem(item.id)}
+                          className="btn btn-outline text-xs text-red-600 hover:bg-red-50"
+                        >
+                          <X size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Inbounds List */}
+      <div className="card p-6">
+        <h3 className="font-bold text-gray-800 mb-4">
+          {lang === 'ar' ? 'سجل الوارد' : 'Inbound History'} ({inbounds.length})
+        </h3>
+        <div className="overflow-x-auto">
+          <table>
+            <thead>
+              <tr>
+                <th>{lang === 'ar' ? 'الرقم' : 'Number'}</th>
+                <th>{lang === 'ar' ? 'السائق' : 'Driver'}</th>
+                <th>{lang === 'ar' ? 'الحاوية' : 'Container'}</th>
+                <th>{lang === 'ar' ? 'النوع' : 'Type'}</th>
+                <th>{lang === 'ar' ? 'الأصناف' : 'Items'}</th>
+                <th>{lang === 'ar' ? 'الحالة' : 'Status'}</th>
+                <th>{lang === 'ar' ? 'التاريخ' : 'Date'}</th>
+                <th>{lang === 'ar' ? 'إجراءات' : 'Actions'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {inbounds.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="text-center text-gray-400 py-8">
+                    {lang === 'ar' ? 'لا يوجد وارد مسجل' : 'No inbound records'}
+                  </td>
+                </tr>
+              ) : (
+                inbounds.map(inbound => (
+                  <tr key={inbound.id}>
+                    <td className="font-mono font-bold text-indigo-600">{inbound.inboundNumber}</td>
+                    <td>{inbound.driverName}</td>
+                    <td>{inbound.containerNumber}</td>
+                    <td>{inbound.containerType}</td>
+                    <td>{inbound.items.length}</td>
+                    <td>{statusBadge(inbound.status)}</td>
+                    <td className="text-gray-500">{formatTime(inbound.createdAt, lang)}</td>
+                    <td>
+                      <button
+                        onClick={() => setSelectedInbound(inbound)}
+                        className="btn btn-outline text-xs"
+                      >
+                        {lang === 'ar' ? 'عرض' : 'View'}
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Preparation Page
 function PreparationPage() {
   const { lang, refresh } = useApp();
@@ -1283,6 +1740,7 @@ export default function App() {
               </Layout>
             </ProtectedRoute>
           } />
+          <Route path="/inbound" element={<ProtectedRoute><Layout><InboundPage /></Layout></ProtectedRoute>} />
           <Route path="/incoming" element={<ProtectedRoute><Layout><IncomingPage /></Layout></ProtectedRoute>} />
           <Route path="/couriers" element={<ProtectedRoute><Layout><CouriersPage /></Layout></ProtectedRoute>} />
           <Route path="/preparation" element={<ProtectedRoute><Layout><PreparationPage /></Layout></ProtectedRoute>} />

@@ -2,6 +2,7 @@ export type Lang = 'ar' | 'en';
 
 const translations: Record<string, Record<Lang, string>> = {
   'nav.home': { ar: 'الرئيسية', en: 'Home' },
+  'nav.inbound': { ar: 'الوارد', en: 'Inbound' },
   'nav.incoming': { ar: 'دخول المندوب', en: 'Courier Entry' },
   'nav.couriers': { ar: 'المندوبون', en: 'Couriers' },
   'nav.preparation': { ar: 'التحضير', en: 'Preparation' },
