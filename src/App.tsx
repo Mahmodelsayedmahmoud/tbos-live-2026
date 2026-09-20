@@ -1101,13 +1101,35 @@ function CouriersPage() {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-        // تحويل البيانات إلى صيغة المندوبين
-        const couriersData = jsonData.map((row: any) => ({
-          code: row['الكود'] || row['code'] || row['Code'] || '',
-          name: row['الاسم'] || row['name'] || row['Name'] || '',
-          phone: row['الهاتف'] || row['phone'] || row['Phone'] || '',
-          branchId: row['الفرع'] || row['branchId'] || row['Branch'] || '',
-        }));
+        // تحويل البيانات إلى صيغة المندوبين - مرن جداً
+        const couriersData = jsonData.map((row: any) => {
+          // البحث عن الاسم بأي طريقة ممكنة
+          const name = row['الاسم'] || row['name'] || row['Name'] || 
+                      row['اسم المندوب'] || row['courier'] || row['Courier'] ||
+                      row['المندوب'] || '';
+
+          // البحث عن الكود
+          const code = row['الكود'] || row['code'] || row['Code'] || 
+                      row['كود المندوب'] || row['courier_code'] || row['courierCode'] ||
+                      row['رقم المندوب'] || '';
+
+          // البحث عن الهاتف
+          const phone = row['الهاتف'] || row['phone'] || row['Phone'] || 
+                       row['رقم الهاتف'] || row['tel'] || row['Tel'] ||
+                       row['mobile'] || row['Mobile'] || '';
+
+          // البحث عن الفرع - يقبل الاسم أو الكود أو المعرف
+          const branch = row['الفرع'] || row['branchId'] || row['Branch'] || 
+                        row['branch'] || row['BranchId'] || row['branch_id'] ||
+                        row['الفرع الخاص'] || row['فرع'] || '';
+
+          return {
+            code,
+            name,
+            phone,
+            branchId: branch, // سيتم معالجته في bulkImportCouriers
+          };
+        });
 
         // استيراد المندوبين
         const result = db.bulkImportCouriers(couriersData);
@@ -1124,8 +1146,10 @@ function CouriersPage() {
 
   const downloadTemplate = () => {
     const template = [
-      { 'الكود': 'C001', 'الاسم': 'أحمد محمد', 'الهاتف': '0101234567', 'الفرع': 'b1' },
-      { 'الكود': 'C002', 'الاسم': 'محمود علي', 'الهاتف': '0109876543', 'الفرع': 'b2' },
+      { 'الكود': 'C001', 'الاسم': 'أحمد محمد', 'الهاتف': '0101234567', 'الفرع': 'القاهرة' },
+      { 'الكود': 'C002', 'الاسم': 'محمود علي', 'الهاتف': '0109876543', 'الفرع': 'الإسكندرية' },
+      { 'الكود': 'C003', 'الاسم': 'خالد حسن', 'الهاتف': '0115554433', 'الفرع': 'طنطا' },
+      { 'الكود': '', 'الاسم': 'عمر سعيد', 'الهاتف': '0127778899', 'الفرع': '' }, // بدون كود وفرع - سيتم توليدهما تلقائياً
     ];
 
     const worksheet = XLSX.utils.json_to_sheet(template);
@@ -1203,9 +1227,10 @@ function CouriersPage() {
                       {lang === 'ar' ? 'تعليمات الاستيراد:' : 'Import Instructions:'}
                     </h4>
                     <ul className="text-sm text-blue-800 space-y-1">
-                      <li>• {lang === 'ar' ? 'يجب أن يحتوي الملف على الأعمدة: الكود، الاسم، الهاتف، الفرع' : 'File must contain columns: code, name, phone, branch'}</li>
-                      <li>• {lang === 'ar' ? 'الفرع يجب أن يكون معرف الفرع (b1, b2, b3)' : 'Branch must be branch ID (b1, b2, b3)'}</li>
-                      <li>• {lang === 'ar' ? 'سيتم تجاهل الصفوف التي تحتوي على أخطاء' : 'Rows with errors will be skipped'}</li>
+                      <li>• <strong>{lang === 'ar' ? 'الاسم فقط مطلوب' : 'Only name is required'}</strong> - {lang === 'ar' ? 'باقي الحقول اختيارية' : 'other fields are optional'}</li>
+                      <li>• {lang === 'ar' ? 'يمكنك كتابة اسم الفرع مباشرة (مثل: القاهرة، الإسكندرية، طنطا)' : 'You can write branch name directly (e.g., Cairo, Alexandria, Tanta)'}</li>
+                      <li>• {lang === 'ar' ? 'إذا لم يتم تحديد كود، سيتم توليده تلقائياً' : 'If code is not provided, it will be auto-generated'}</li>
+                      <li>• {lang === 'ar' ? 'إذا لم يتم تحديد فرع، سيتم استخدام الفرع الافتراضي' : 'If branch is not specified, default branch will be used'}</li>
                     </ul>
                   </div>
 
@@ -1245,16 +1270,21 @@ function CouriersPage() {
                     </label>
                   </div>
 
-                  {/* Branch IDs Reference */}
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="font-semibold text-gray-800 mb-2">
-                      {lang === 'ar' ? 'معرفات الفروع المتاحة:' : 'Available Branch IDs:'}
+                  {/* Branch Reference */}
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-green-900 mb-2">
+                      {lang === 'ar' ? '✅ الفروع المتاحة (يمكنك استخدام الاسم أو المعرف):' : '✅ Available Branches (you can use name or ID):'}
                     </h4>
-                    <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                       {branches.map(branch => (
-                        <div key={branch.id} className="flex justify-between">
-                          <span className="text-gray-600">{branch.name}:</span>
-                          <span className="font-mono font-bold text-indigo-600">{branch.id}</span>
+                        <div key={branch.id} className="bg-white rounded-lg p-3 border border-green-300">
+                          <div className="font-bold text-green-800 mb-1">{branch.name}</div>
+                          <div className="text-xs text-gray-600">
+                            {lang === 'ar' ? 'المعرف:' : 'ID:'} <span className="font-mono font-bold text-indigo-600">{branch.id}</span>
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {lang === 'ar' ? 'أو اكتب:' : 'Or write:'} <span className="font-medium">{branch.name}</span>
+                          </div>
                         </div>
                       ))}
                     </div>

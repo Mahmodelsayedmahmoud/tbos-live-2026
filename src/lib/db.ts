@@ -250,29 +250,57 @@ export function bulkImportCouriers(couriersData: Array<Omit<Courier, 'id' | 'sta
   let failed = 0;
   const errors: string[] = [];
 
+  // الحصول على الفرع الافتراضي (أول فرع في النظام)
+  const defaultBranch = state.branches.length > 0 ? state.branches[0] : null;
+
   couriersData.forEach((data, index) => {
     try {
-      if (!data.code || !data.name || !data.branchId) {
+      // التحقق المرن: فقط الاسم مطلوب
+      if (!data.name) {
         failed++;
-        errors.push(`Row ${index + 1}: Missing required fields (code, name, or branchId)`);
+        errors.push(`Row ${index + 1}: Name is required`);
         return;
       }
 
-      const existingCourier = state.couriers.find(c => c.code === data.code);
+      // توليد كود تلقائي إذا لم يكن موجوداً
+      const courierCode = data.code || `AUTO-${String(state.couriers.length + index + 1).padStart(4, '0')}`;
+
+      // التحقق من عدم تكرار الكود
+      const existingCourier = state.couriers.find(c => c.code === courierCode);
       if (existingCourier) {
         failed++;
-        errors.push(`Row ${index + 1}: Courier code "${data.code}" already exists`);
+        errors.push(`Row ${index + 1}: Courier code "${courierCode}" already exists`);
         return;
       }
 
-      const branch = state.branches.find(b => b.id === data.branchId);
-      if (!branch) {
-        failed++;
-        errors.push(`Row ${index + 1}: Branch "${data.branchId}" not found`);
-        return;
+      // البحث عن الفرع بمرونة
+      let branchId = data.branchId;
+      
+      // إذا لم يكن branchId موجوداً، استخدم الفرع الافتراضي
+      if (!branchId && defaultBranch) {
+        branchId = defaultBranch.id;
+      }
+      
+      // إذا كان branchId موجوداً، تحقق من وجوده
+      if (branchId) {
+        const branch = state.branches.find(b => b.id === branchId || b.name === branchId || b.code === branchId);
+        if (!branch && defaultBranch) {
+          // إذا لم يتم العثور على الفرع، استخدم الفرع الافتراضي
+          branchId = defaultBranch.id;
+        } else if (branch) {
+          branchId = branch.id;
+        }
       }
 
-      addCourier(data);
+      // إنشاء المندوب
+      const courierData: Omit<Courier, 'id' | 'status'> = {
+        code: courierCode,
+        name: data.name,
+        phone: data.phone || '',
+        branchId: branchId || (defaultBranch ? defaultBranch.id : 'b1'),
+      };
+
+      addCourier(courierData);
       success++;
     } catch (error) {
       failed++;
