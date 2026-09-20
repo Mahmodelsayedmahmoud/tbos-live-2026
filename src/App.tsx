@@ -8,6 +8,9 @@ import {
 import { Lang, t, formatDuration, formatTime } from './lib/i18n';
 import * as db from './lib/db';
 import * as XLSX from 'xlsx';
+import NotificationToast from './components/NotificationToast';
+import * as permissions from './lib/permissions';
+import { notifyCourierCheckIn, notifyStageStarted, notifyStageCompleted, notifyDecision } from './lib/notifications';
 
 // Context
 interface AppContextType {
@@ -30,10 +33,36 @@ function useApp() {
   return useContext(AppContext);
 }
 
-// Protected Route
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user } = useApp();
+// Protected Route with Permission Check
+function ProtectedRoute({ children, requiredPermission }: { children: React.ReactNode; requiredPermission?: permissions.Permission }) {
+  const { user, lang } = useApp();
+  const location = useLocation();
+  
   if (!user) return <Navigate to="/login" replace />;
+  
+  // التحقق من الصلاحيات إذا تم تحديدها
+  if (requiredPermission && !permissions.hasPermission(user.role, requiredPermission)) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center p-8">
+          <AlertTriangle size={64} className="text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            {lang === 'ar' ? 'ليس لديك صلاحية الوصول' : 'Access Denied'}
+          </h2>
+          <p className="text-gray-600 mb-4">
+            {lang === 'ar' ? 'ليس لديك صلاحية للوصول إلى هذه الصفحة' : 'You do not have permission to access this page'}
+          </p>
+          <button
+            onClick={() => window.history.back()}
+            className="btn btn-primary"
+          >
+            {lang === 'ar' ? 'العودة' : 'Go Back'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
   return <>{children}</>;
 }
 
@@ -51,31 +80,34 @@ function Layout({ children }: { children: React.ReactNode }) {
   };
 
   const navItems = [
-    { path: '/', icon: Home, label: 'nav.home', perm: null },
-    { path: '/inbound', icon: Package, label: 'nav.inbound', perm: 'trips.create' },
-    { path: '/incoming', icon: ArrowDownCircle, label: 'nav.incoming', perm: 'trips.create' },
-    { path: '/couriers', icon: Truck, label: 'nav.couriers', perm: 'couriers.read' },
-    { path: '/preparation', icon: Package, label: 'nav.preparation', perm: 'workflow.start' },
-    { path: '/inventory', icon: ClipboardList, label: 'nav.inventory', perm: 'workflow.start' },
-    { path: '/loading', icon: Truck, label: 'nav.loading', perm: 'workflow.start' },
-    { path: '/workflow', icon: Layers, label: 'nav.workflow', perm: 'workflow.start' },
-    { path: '/trips', icon: FileText, label: 'nav.trips', perm: 'trips.read' },
-    { path: '/cashier', icon: ClipboardList, label: 'nav.cashier', perm: 'cashier.read' },
-    { path: '/queue', icon: Clock, label: 'nav.queue', perm: 'queue.read' },
-    { path: '/reports', icon: BarChart3, label: 'nav.reports', perm: 'reports.view' },
-    { path: '/performance', icon: TrendingUp, label: 'nav.performance', perm: 'reports.view' },
-    { path: '/users', icon: Users, label: 'nav.users', perm: 'users.read' },
-    { path: '/settings', icon: Settings, label: 'nav.settings', perm: 'settings.read' },
+    { path: '/', icon: Home, label: 'nav.home', perm: 'view_dashboard' },
+    { path: '/inbound', icon: Package, label: 'nav.inbound', perm: 'view_inbound' },
+    { path: '/incoming', icon: ArrowDownCircle, label: 'nav.incoming', perm: 'view_inbound' },
+    { path: '/couriers', icon: Truck, label: 'nav.couriers', perm: 'view_couriers' },
+    { path: '/preparation', icon: Package, label: 'nav.preparation', perm: 'view_workflow' },
+    { path: '/inventory', icon: ClipboardList, label: 'nav.inventory', perm: 'view_workflow' },
+    { path: '/loading', icon: Truck, label: 'nav.loading', perm: 'view_workflow' },
+    { path: '/workflow', icon: Layers, label: 'nav.workflow', perm: 'view_workflow' },
+    { path: '/trips', icon: FileText, label: 'nav.trips', perm: 'view_trips' },
+    { path: '/cashier', icon: ClipboardList, label: 'nav.cashier', perm: 'view_cashier' },
+    { path: '/queue', icon: Clock, label: 'nav.queue', perm: 'view_queue' },
+    { path: '/reports', icon: BarChart3, label: 'nav.reports', perm: 'view_reports' },
+    { path: '/performance', icon: TrendingUp, label: 'nav.performance', perm: 'view_performance' },
+    { path: '/users', icon: Users, label: 'nav.users', perm: 'view_users' },
+    { path: '/settings', icon: Settings, label: 'nav.settings', perm: 'view_settings' },
   ];
 
   const filteredNav = navItems.filter(item => {
     if (!item.perm) return true;
     if (!user) return false;
-    return db.hasPermission(user.role, item.perm);
+    return permissions.hasPermission(user.role, item.perm as permissions.Permission);
   });
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
+      {/* نظام التنبيهات البصرية */}
+      <NotificationToast />
+      
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
@@ -835,6 +867,12 @@ function IncomingPage() {
     if (result.success && result.trip) {
       setError('');
       
+      // إرسال تنبيه تسجيل الوصول
+      const courier = db.getCourier(selectedCourier);
+      if (courier) {
+        notifyCourierCheckIn(courier.name, result.trip.tripNumber);
+      }
+      
       // إذا تم تحديد بدء التحضير المسبق، ابدأ مرحلة التحضير فوراً
       if (startPreparation) {
         db.startStage(result.trip.id, 'PREPARATION');
@@ -953,15 +991,30 @@ function WorkflowPage() {
 
   const handleStart = (tripId: string, stage: db.StageName) => {
     const result = db.startStage(tripId, stage);
-    if (result.success) refresh();
-    else alert(result.error);
+    if (result.success) {
+      const trip = db.getTrip(tripId);
+      if (trip) {
+        notifyStageStarted(t(`stage.${stage}`, lang), trip.tripNumber);
+      }
+      refresh();
+    } else {
+      alert(result.error);
+    }
   };
 
   const handleFinish = (tripId: string, stage: db.StageName) => {
     const result = db.finishStage(tripId, stage);
     if (result.success) {
+      const trip = db.getTrip(tripId);
+      if (trip) {
+        notifyStageCompleted(t(`stage.${stage}`, lang), trip.tripNumber);
+      }
+      
       if (stage === 'LOADING') {
-        db.runDecisionEngine(tripId);
+        const decision = db.runDecisionEngine(tripId);
+        if (decision && trip) {
+          notifyDecision(t(`decision.${decision.decision}`, lang), trip.tripNumber);
+        }
       }
       refresh();
     } else {
@@ -2172,26 +2225,26 @@ export default function App() {
         <Routes>
           <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
           <Route path="/" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredPermission="view_dashboard">
               <Layout>
                 <DashboardPage />
               </Layout>
             </ProtectedRoute>
           } />
-          <Route path="/inbound" element={<ProtectedRoute><Layout><InboundPage /></Layout></ProtectedRoute>} />
-          <Route path="/incoming" element={<ProtectedRoute><Layout><IncomingPage /></Layout></ProtectedRoute>} />
-          <Route path="/couriers" element={<ProtectedRoute><Layout><CouriersPage /></Layout></ProtectedRoute>} />
-          <Route path="/preparation" element={<ProtectedRoute><Layout><PreparationPage /></Layout></ProtectedRoute>} />
-          <Route path="/inventory" element={<ProtectedRoute><Layout><InventoryPage /></Layout></ProtectedRoute>} />
-          <Route path="/loading" element={<ProtectedRoute><Layout><LoadingPage /></Layout></ProtectedRoute>} />
-          <Route path="/workflow" element={<ProtectedRoute><Layout><WorkflowPage /></Layout></ProtectedRoute>} />
-          <Route path="/trips" element={<ProtectedRoute><Layout><TripsPage /></Layout></ProtectedRoute>} />
-          <Route path="/cashier" element={<ProtectedRoute><Layout><CashierPage /></Layout></ProtectedRoute>} />
-          <Route path="/queue" element={<ProtectedRoute><Layout><QueuePage /></Layout></ProtectedRoute>} />
-          <Route path="/reports" element={<ProtectedRoute><Layout><ReportsPage /></Layout></ProtectedRoute>} />
-          <Route path="/performance" element={<ProtectedRoute><Layout><PerformanceReportPage /></Layout></ProtectedRoute>} />
-          <Route path="/users" element={<ProtectedRoute><Layout><UsersPage /></Layout></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><Layout><SettingsPage /></Layout></ProtectedRoute>} />
+          <Route path="/inbound" element={<ProtectedRoute requiredPermission="view_inbound"><Layout><InboundPage /></Layout></ProtectedRoute>} />
+          <Route path="/incoming" element={<ProtectedRoute requiredPermission="view_inbound"><Layout><IncomingPage /></Layout></ProtectedRoute>} />
+          <Route path="/couriers" element={<ProtectedRoute requiredPermission="view_couriers"><Layout><CouriersPage /></Layout></ProtectedRoute>} />
+          <Route path="/preparation" element={<ProtectedRoute requiredPermission="view_workflow"><Layout><PreparationPage /></Layout></ProtectedRoute>} />
+          <Route path="/inventory" element={<ProtectedRoute requiredPermission="view_workflow"><Layout><InventoryPage /></Layout></ProtectedRoute>} />
+          <Route path="/loading" element={<ProtectedRoute requiredPermission="view_workflow"><Layout><LoadingPage /></Layout></ProtectedRoute>} />
+          <Route path="/workflow" element={<ProtectedRoute requiredPermission="view_workflow"><Layout><WorkflowPage /></Layout></ProtectedRoute>} />
+          <Route path="/trips" element={<ProtectedRoute requiredPermission="view_trips"><Layout><TripsPage /></Layout></ProtectedRoute>} />
+          <Route path="/cashier" element={<ProtectedRoute requiredPermission="view_cashier"><Layout><CashierPage /></Layout></ProtectedRoute>} />
+          <Route path="/queue" element={<ProtectedRoute requiredPermission="view_queue"><Layout><QueuePage /></Layout></ProtectedRoute>} />
+          <Route path="/reports" element={<ProtectedRoute requiredPermission="view_reports"><Layout><ReportsPage /></Layout></ProtectedRoute>} />
+          <Route path="/performance" element={<ProtectedRoute requiredPermission="view_performance"><Layout><PerformanceReportPage /></Layout></ProtectedRoute>} />
+          <Route path="/users" element={<ProtectedRoute requiredPermission="view_users"><Layout><UsersPage /></Layout></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute requiredPermission="view_settings"><Layout><SettingsPage /></Layout></ProtectedRoute>} />
         </Routes>
       </HashRouter>
     </AppContext.Provider>
