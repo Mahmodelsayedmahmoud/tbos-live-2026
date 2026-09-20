@@ -3,7 +3,7 @@ import { HashRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } f
 import {
   Home, LogIn, LogOut, Menu, X, Users, Truck, FileText, Settings,
   ClipboardList, Package, ArrowDownCircle, Play, Square, Clock, AlertTriangle,
-  CheckCircle, BarChart3, Layers, Globe, Zap, Printer, Share2
+  CheckCircle, BarChart3, Layers, Globe, Zap, Printer, Share2, TrendingUp
 } from 'lucide-react';
 import { Lang, t, formatDuration, formatTime } from './lib/i18n';
 import * as db from './lib/db';
@@ -62,6 +62,7 @@ function Layout({ children }: { children: React.ReactNode }) {
     { path: '/cashier', icon: ClipboardList, label: 'nav.cashier', perm: 'cashier.read' },
     { path: '/queue', icon: Clock, label: 'nav.queue', perm: 'queue.read' },
     { path: '/reports', icon: BarChart3, label: 'nav.reports', perm: 'reports.view' },
+    { path: '/performance', icon: TrendingUp, label: 'nav.performance', perm: 'reports.view' },
     { path: '/users', icon: Users, label: 'nav.users', perm: 'users.read' },
     { path: '/settings', icon: Settings, label: 'nav.settings', perm: 'settings.read' },
   ];
@@ -1610,6 +1611,205 @@ function ReportsPage() {
   );
 }
 
+// Performance Report Page
+function PerformanceReportPage() {
+  const { lang } = useApp();
+  const trips = db.getTrips();
+  const stages = ['ENTRY', 'DOCK', 'PREPARATION', 'INVENTORY', 'LOADING', 'CASHIER'];
+
+  // Calculate stage durations for each trip
+  const getTripPerformance = (trip: any) => {
+    const tripStages = db.getTripStages(trip.id);
+    const stageDurations: Record<string, number> = {};
+    let totalTime = 0;
+
+    stages.forEach(stage => {
+      const stageData = tripStages.find(s => s.stage === stage);
+      if (stageData && stageData.durationSeconds) {
+        stageDurations[stage] = stageData.durationSeconds;
+        totalTime += stageData.durationSeconds;
+      } else {
+        stageDurations[stage] = 0;
+      }
+    });
+
+    return {
+      tripNumber: trip.tripNumber,
+      courier: db.getCourier(trip.courierId)?.name || '-',
+      branch: db.getBranch(trip.branchId)?.name || '-',
+      arrivalTime: trip.arrivalAt,
+      status: trip.status,
+      stageDurations,
+      totalTime,
+    };
+  };
+
+  const performances = trips.map(getTripPerformance);
+  const completedPerformances = performances.filter(p => p.status === 'COMPLETED');
+
+  // Calculate averages
+  const calculateAverage = (performances: any[], stage: string) => {
+    const validPerformances = performances.filter(p => p.stageDurations[stage] > 0);
+    if (validPerformances.length === 0) return 0;
+    const total = validPerformances.reduce((sum, p) => sum + p.stageDurations[stage], 0);
+    return Math.round(total / validPerformances.length);
+  };
+
+  const avgTotalTime = completedPerformances.length > 0
+    ? Math.round(completedPerformances.reduce((sum, p) => sum + p.totalTime, 0) / completedPerformances.length)
+    : 0;
+
+  const exportCSV = () => {
+    const headers = [
+      'Trip Number',
+      'Courier',
+      'Branch',
+      'Arrival Time',
+      'Status',
+      ...stages.map(s => s),
+      'Total Time'
+    ];
+    
+    const rows = performances.map(p => [
+      p.tripNumber,
+      p.courier,
+      p.branch,
+      p.arrivalTime,
+      p.status,
+      ...stages.map(s => p.stageDurations[s]),
+      p.totalTime
+    ].join(','));
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'performance-report.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-800">
+          {lang === 'ar' ? 'تقرير أداء المندوبين' : 'Courier Performance Report'}
+        </h2>
+        <div className="flex gap-2">
+          <button onClick={exportCSV} className="btn btn-primary">
+            {lang === 'ar' ? 'تصدير CSV' : 'Export CSV'}
+          </button>
+          <button onClick={() => window.print()} className="btn btn-outline">
+            {lang === 'ar' ? 'طباعة' : 'Print'}
+          </button>
+        </div>
+      </div>
+
+      {/* Summary Statistics */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="card p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200">
+          <p className="text-sm text-gray-600">{lang === 'ar' ? 'إجمالي الرحلات' : 'Total Trips'}</p>
+          <p className="text-3xl font-bold text-blue-700 mt-1">{trips.length}</p>
+        </div>
+        <div className="card p-4 bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200">
+          <p className="text-sm text-gray-600">{lang === 'ar' ? 'الرحلات المكتملة' : 'Completed Trips'}</p>
+          <p className="text-3xl font-bold text-green-700 mt-1">{completedPerformances.length}</p>
+        </div>
+        <div className="card p-4 bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200">
+          <p className="text-sm text-gray-600">{lang === 'ar' ? 'متوسط الوقت الإجمالي' : 'Avg Total Time'}</p>
+          <p className="text-3xl font-bold text-purple-700 mt-1">{formatDuration(avgTotalTime, lang)}</p>
+        </div>
+        <div className="card p-4 bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200">
+          <p className="text-sm text-gray-600">{lang === 'ar' ? 'الرحلات النشطة' : 'Active Trips'}</p>
+          <p className="text-3xl font-bold text-orange-700 mt-1">{trips.filter(t => t.status === 'ACTIVE').length}</p>
+        </div>
+      </div>
+
+      {/* Average Time per Stage */}
+      <div className="card p-6">
+        <h3 className="font-bold text-gray-800 mb-4">
+          {lang === 'ar' ? 'متوسط الوقت لكل مرحلة' : 'Average Time per Stage'}
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {stages.map(stage => {
+            const avg = calculateAverage(completedPerformances, stage);
+            return (
+              <div key={stage} className="p-4 bg-gray-50 rounded-lg text-center">
+                <p className="text-xs text-gray-600 mb-1">{t(`stage.${stage}`, lang)}</p>
+                <p className="text-xl font-bold text-gray-800">{formatDuration(avg, lang)}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Detailed Performance Table */}
+      <div className="card p-6">
+        <h3 className="font-bold text-gray-800 mb-4">
+          {lang === 'ar' ? 'تفاصيل أداء كل رحلة' : 'Detailed Trip Performance'}
+        </h3>
+        <div className="overflow-x-auto">
+          <table>
+            <thead>
+              <tr>
+                <th>{lang === 'ar' ? 'رقم الرحلة' : 'Trip Number'}</th>
+                <th>{lang === 'ar' ? 'المندوب' : 'Courier'}</th>
+                <th>{lang === 'ar' ? 'الفرع' : 'Branch'}</th>
+                {stages.map(stage => (
+                  <th key={stage}>{t(`stage.${stage}`, lang)}</th>
+                ))}
+                <th>{lang === 'ar' ? 'الوقت الإجمالي' : 'Total Time'}</th>
+                <th>{lang === 'ar' ? 'الحالة' : 'Status'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {performances.length === 0 ? (
+                <tr>
+                  <td colSpan={stages.length + 6} className="text-center text-gray-500 py-8">
+                    {lang === 'ar' ? 'لا توجد بيانات' : 'No data available'}
+                  </td>
+                </tr>
+              ) : (
+                performances.map(perf => (
+                  <tr key={perf.tripNumber}>
+                    <td className="font-mono font-bold text-indigo-600">{perf.tripNumber}</td>
+                    <td>{perf.courier}</td>
+                    <td>{perf.branch}</td>
+                    {stages.map(stage => (
+                      <td key={stage} className="font-mono text-sm">
+                        {perf.stageDurations[stage] > 0 ? (
+                          <span className="text-gray-700">
+                            {formatDuration(perf.stageDurations[stage], lang)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                    ))}
+                    <td className="font-mono font-bold text-purple-700">
+                      {perf.totalTime > 0 ? formatDuration(perf.totalTime, lang) : '-'}
+                    </td>
+                    <td>
+                      <span className={`badge ${
+                        perf.status === 'COMPLETED' ? 'badge-green' :
+                        perf.status === 'ACTIVE' ? 'badge-blue' :
+                        'badge-gray'
+                      }`}>
+                        {perf.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Users Page
 function UsersPage() {
   const { lang } = useApp();
@@ -1757,6 +1957,7 @@ export default function App() {
           <Route path="/cashier" element={<ProtectedRoute><Layout><CashierPage /></Layout></ProtectedRoute>} />
           <Route path="/queue" element={<ProtectedRoute><Layout><QueuePage /></Layout></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute><Layout><ReportsPage /></Layout></ProtectedRoute>} />
+          <Route path="/performance" element={<ProtectedRoute><Layout><PerformanceReportPage /></Layout></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute><Layout><UsersPage /></Layout></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Layout><SettingsPage /></Layout></ProtectedRoute>} />
         </Routes>
