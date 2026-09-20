@@ -3,7 +3,7 @@ import { HashRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } f
 import {
   Home, LogIn, LogOut, Menu, X, Users, Truck, FileText, Settings,
   ClipboardList, Package, ArrowDownCircle, Play, Square, Clock, AlertTriangle,
-  CheckCircle, BarChart3, Layers, Globe, Zap, Printer, Share2, TrendingUp, Upload, Download
+  CheckCircle, BarChart3, Layers, Globe, Zap, Printer, Share2, TrendingUp, Upload, Download, Activity
 } from 'lucide-react';
 import { Lang, t, formatDuration, formatTime } from './lib/i18n';
 import * as db from './lib/db';
@@ -11,6 +11,10 @@ import * as XLSX from 'xlsx';
 import NotificationToast from './components/NotificationToast';
 import * as permissions from './lib/permissions';
 import { notifyCourierCheckIn, notifyStageStarted, notifyStageCompleted, notifyDecision } from './lib/notifications';
+import DashboardKPIs from './components/DashboardKPIs';
+import ActivityLogViewer from './components/ActivityLog';
+import { logActivity } from './lib/auditLog';
+import { exportTripsReport, exportCouriersReport, exportInboundReport, exportPerformanceReport } from './lib/exportUtils';
 
 // Context
 interface AppContextType {
@@ -93,6 +97,8 @@ function Layout({ children }: { children: React.ReactNode }) {
     { path: '/queue', icon: Clock, label: 'nav.queue', perm: 'view_queue' },
     { path: '/reports', icon: BarChart3, label: 'nav.reports', perm: 'view_reports' },
     { path: '/performance', icon: TrendingUp, label: 'nav.performance', perm: 'view_performance' },
+    { path: '/dashboard-kpis', icon: BarChart3, label: 'nav.dashboard_kpis', perm: 'view_dashboard' },
+    { path: '/activity-log', icon: Activity, label: 'nav.activity_log', perm: 'view_dashboard' },
     { path: '/users', icon: Users, label: 'nav.users', perm: 'view_users' },
     { path: '/settings', icon: Settings, label: 'nav.settings', perm: 'view_settings' },
   ];
@@ -1841,12 +1847,88 @@ function ReportsPage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportTripsExcel = () => {
+    try {
+      const tripsData = trips.map(trip => {
+        const courier = db.getCourier(trip.courierId);
+        const branch = db.getBranch(trip.branchId);
+        return {
+          tripNumber: trip.tripNumber,
+          courierName: courier?.name || '-',
+          branchName: branch?.name || '-',
+          arrivalAt: trip.arrivalAt,
+          currentStage: trip.currentStage,
+          status: trip.status,
+          completedAt: trip.completedAt,
+        };
+      });
+      exportTripsReport(tripsData, lang === 'ar' ? 'تقرير_الرحلات' : 'Trips_Report');
+    } catch (error) {
+      console.error('Export failed:', error);
+    }
+  };
+
+  const handleExportCouriersExcel = () => {
+    try {
+      const couriers = db.getCouriers();
+      const couriersData = couriers.map(courier => {
+        const branch = db.getBranch(courier.branchId);
+        return {
+          code: courier.code,
+          name: courier.name,
+          phone: courier.phone,
+          branchName: branch?.name || '-',
+          status: courier.status,
+        };
+      });
+      exportCouriersReport(couriersData, lang === 'ar' ? 'تقرير_المندوبين' : 'Couriers_Report');
+    } catch (error) {
+      console.error('Export failed:', error);
+    }
+  };
+
+  const handleExportInboundExcel = () => {
+    try {
+      const inbounds = db.getInbounds();
+      const inboundsData = inbounds.map(inbound => {
+        const branch = db.getBranch(inbound.branchId);
+        return {
+          inboundNumber: inbound.inboundNumber,
+          driverName: inbound.driverName,
+          driverCode: inbound.driverCode,
+          containerNumber: inbound.containerNumber,
+          containerType: inbound.containerType,
+          branchName: branch?.name || '-',
+          status: inbound.status,
+          startedAt: inbound.startedAt,
+          completedAt: inbound.completedAt,
+          items: inbound.items,
+        };
+      });
+      exportInboundReport(inboundsData, lang === 'ar' ? 'تقرير_الوارد' : 'Inbound_Report');
+    } catch (error) {
+      console.error('Export failed:', error);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-slide-up">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <h2 className="text-2xl font-bold text-gray-800">{t('reports.title', lang)}</h2>
-        <div className="flex gap-2">
-          <button onClick={exportCSV} className="btn btn-primary">
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={handleExportTripsExcel} className="btn btn-primary">
+            <Download size={16} />
+            {lang === 'ar' ? 'تصدير الرحلات' : 'Export Trips'}
+          </button>
+          <button onClick={handleExportCouriersExcel} className="btn btn-success">
+            <Download size={16} />
+            {lang === 'ar' ? 'تصدير المندوبين' : 'Export Couriers'}
+          </button>
+          <button onClick={handleExportInboundExcel} className="btn btn-outline">
+            <Download size={16} />
+            {lang === 'ar' ? 'تصدير الوارد' : 'Export Inbound'}
+          </button>
+          <button onClick={exportCSV} className="btn btn-outline">
             {t('reports.export_csv', lang)}
           </button>
           <button onClick={() => window.print()} className="btn btn-outline">
@@ -1975,18 +2057,31 @@ function PerformanceReportPage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportPerformanceExcel = () => {
+    try {
+      exportPerformanceReport(performances, lang === 'ar' ? 'تقرير_الأداء' : 'Performance_Report');
+    } catch (error) {
+      console.error('Export failed:', error);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-slide-up">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <h2 className="text-2xl font-bold text-gray-800">
           {lang === 'ar' ? 'تقرير أداء المندوبين' : 'Courier Performance Report'}
         </h2>
-        <div className="flex gap-2">
-          <button onClick={exportCSV} className="btn btn-primary">
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={handleExportPerformanceExcel} className="btn btn-primary">
+            <Download size={16} />
+            {lang === 'ar' ? 'تصدير Excel' : 'Export Excel'}
+          </button>
+          <button onClick={exportCSV} className="btn btn-success">
+            <Download size={16} />
             {lang === 'ar' ? 'تصدير CSV' : 'Export CSV'}
           </button>
           <button onClick={() => window.print()} className="btn btn-outline">
-            {lang === 'ar' ? 'طباعة' : 'Print'}
+            {lang === 'ar' ? 'طباعة PDF' : 'Print PDF'}
           </button>
         </div>
       </div>
@@ -2161,6 +2256,18 @@ function SettingsPage() {
   );
 }
 
+// Dashboard KPIs Page
+function DashboardKPIsPage() {
+  const { lang } = useApp();
+  return <DashboardKPIs lang={lang} />;
+}
+
+// Activity Log Page
+function ActivityLogPage() {
+  const { lang } = useApp();
+  return <ActivityLogViewer lang={lang} />;
+}
+
 function BranchSettingsCard({ branch, onSave, lang }: { branch: db.Branch; onSave: (id: string, updates: Partial<db.Branch>) => void; lang: Lang }) {
   const [cashierCapacity, setCashierCapacity] = useState(branch.cashierCapacity);
   const [dockCapacity, setDockCapacity] = useState(branch.dockCapacity);
@@ -2245,6 +2352,8 @@ export default function App() {
           <Route path="/performance" element={<ProtectedRoute requiredPermission="view_performance"><Layout><PerformanceReportPage /></Layout></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute requiredPermission="view_users"><Layout><UsersPage /></Layout></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute requiredPermission="view_settings"><Layout><SettingsPage /></Layout></ProtectedRoute>} />
+          <Route path="/dashboard-kpis" element={<ProtectedRoute requiredPermission="view_dashboard"><Layout><DashboardKPIsPage /></Layout></ProtectedRoute>} />
+          <Route path="/activity-log" element={<ProtectedRoute requiredPermission="view_dashboard"><Layout><ActivityLogPage /></Layout></ProtectedRoute>} />
         </Routes>
       </HashRouter>
     </AppContext.Provider>

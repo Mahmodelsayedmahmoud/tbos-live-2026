@@ -14,6 +14,8 @@ const translations: Record<string, Record<Lang, string>> = {
   'nav.queue': { ar: 'الطابور', en: 'Queue' },
   'nav.reports': { ar: 'التقارير', en: 'Reports' },
   'nav.performance': { ar: 'تقرير الأداء', en: 'Performance Report' },
+  'nav.dashboard_kpis': { ar: 'لوحة المؤشرات', en: 'Dashboard KPIs' },
+  'nav.activity_log': { ar: 'سجل الأنشطة', en: 'Activity Log' },
   'nav.users': { ar: 'المستخدمون', en: 'Users' },
   'nav.settings': { ar: 'الإعدادات', en: 'Settings' },
   'nav.logout': { ar: 'تسجيل الخروج', en: 'Logout' },
