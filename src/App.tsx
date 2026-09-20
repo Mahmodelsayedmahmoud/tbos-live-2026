@@ -352,7 +352,14 @@ function InboundPage() {
   const { lang, refresh } = useApp();
   const [inbounds, setInbounds] = useState<any[]>([]);
   const [selectedInbound, setSelectedInbound] = useState<any>(null);
+  const [, setTick] = useState(0);
   
+  // مؤقت حي للعمليات النشطة
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     setInbounds(db.getInbounds());
   }, []);
@@ -391,6 +398,31 @@ function InboundPage() {
       containerType: '20ft',
       branchId: '',
     });
+  };
+
+  // بدء العد
+  const handleStartCounting = (id: string) => {
+    db.startInbound(id);
+    setInbounds(db.getInbounds());
+    refresh();
+  };
+
+  // إنهاء العد
+  const handleEndCounting = (id: string) => {
+    db.completeInbound(id);
+    setInbounds(db.getInbounds());
+    refresh();
+  };
+
+  // حساب الوقت المستغرق
+  const calculateDuration = (startedAt: string | null, completedAt: string | null): string => {
+    if (!startedAt) return '-';
+    
+    const start = new Date(startedAt).getTime();
+    const end = completedAt ? new Date(completedAt).getTime() : Date.now();
+    const durationSeconds = Math.floor((end - start) / 1000);
+    
+    return formatDuration(durationSeconds, lang);
   };
 
   return (
@@ -470,7 +502,9 @@ function InboundPage() {
                   <th>{lang === 'ar' ? 'السائق' : 'Driver'}</th>
                   <th>{lang === 'ar' ? 'الحاوية' : 'Container'}</th>
                   <th>{lang === 'ar' ? 'الحالة' : 'Status'}</th>
+                  <th>{lang === 'ar' ? 'وقت الوارد' : 'Duration'}</th>
                   <th>{lang === 'ar' ? 'التاريخ' : 'Date'}</th>
+                  <th>{lang === 'ar' ? 'الإجراءات' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -479,8 +513,52 @@ function InboundPage() {
                     <td className="font-mono font-bold text-indigo-600">{inbound.inboundNumber || '-'}</td>
                     <td>{inbound.driverName || '-'}</td>
                     <td>{inbound.containerNumber || '-'}</td>
-                    <td><span className="badge badge-blue">{inbound.status || 'PENDING'}</span></td>
+                    <td>
+                      <span className={`badge ${
+                        inbound.status === 'COMPLETED' ? 'badge-green' :
+                        inbound.status === 'IN_PROGRESS' ? 'badge-blue' :
+                        'badge-gray'
+                      }`}>
+                        {inbound.status === 'PENDING' ? (lang === 'ar' ? 'قيد الانتظار' : 'Pending') :
+                         inbound.status === 'IN_PROGRESS' ? (lang === 'ar' ? 'قيد التنفيذ' : 'In Progress') :
+                         inbound.status === 'COMPLETED' ? (lang === 'ar' ? 'مكتمل' : 'Completed') :
+                         inbound.status || 'PENDING'}
+                      </span>
+                    </td>
+                    <td className="font-mono text-sm">
+                      {inbound.status === 'IN_PROGRESS' ? (
+                        <span className="text-indigo-600 font-bold animate-pulse-live">
+                          {calculateDuration(inbound.startedAt, null)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-600">
+                          {calculateDuration(inbound.startedAt, inbound.completedAt)}
+                        </span>
+                      )}
+                    </td>
                     <td className="text-gray-500">{inbound.createdAt ? formatTime(inbound.createdAt, lang) : '-'}</td>
+                    <td>
+                      <div className="flex gap-2">
+                        {inbound.status === 'PENDING' && (
+                          <button
+                            onClick={() => handleStartCounting(inbound.id)}
+                            className="btn btn-success text-xs"
+                          >
+                            <Play size={12} />
+                            {lang === 'ar' ? 'بدء العد' : 'Start'}
+                          </button>
+                        )}
+                        {inbound.status === 'IN_PROGRESS' && (
+                          <button
+                            onClick={() => handleEndCounting(inbound.id)}
+                            className="btn btn-danger text-xs"
+                          >
+                            <Square size={12} />
+                            {lang === 'ar' ? 'إنهاء العد' : 'End'}
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

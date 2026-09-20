@@ -496,6 +496,32 @@ export function createInbound(
   return inbound;
 }
 
+// بدء العد
+export function startInbound(id: string): Inbound | null {
+  if (!state.inbound) return null;
+  
+  const idx = state.inbound.findIndex(i => i.id === id);
+  if (idx === -1) return null;
+  
+  state.inbound[idx].status = 'IN_PROGRESS';
+  state.inbound[idx].startedAt = new Date().toISOString();
+  saveState(state);
+  return state.inbound[idx];
+}
+
+// إنهاء العد
+export function completeInbound(id: string): Inbound | null {
+  if (!state.inbound) return null;
+  
+  const idx = state.inbound.findIndex(i => i.id === id);
+  if (idx === -1) return null;
+  
+  state.inbound[idx].status = 'COMPLETED';
+  state.inbound[idx].completedAt = new Date().toISOString();
+  saveState(state);
+  return state.inbound[idx];
+}
+
 // Users
 export function getUsers(): User[] {
   return [...state.users];
