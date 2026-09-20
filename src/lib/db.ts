@@ -309,11 +309,17 @@ export function startStage(tripId: string, stage: StageName): { success: boolean
   const tripStage = state.tripStages.find(s => s.tripId === tripId && s.stage === stage);
   if (!tripStage) return { success: false, error: 'STAGE_NOT_FOUND' };
 
+  // السماح ببدء أي مرحلة طالما أنها PENDING (مرونة في الترتيب)
   if (tripStage.status !== 'PENDING') return { success: false, error: 'STAGE_NOT_PENDING' };
 
   tripStage.status = 'IN_PROGRESS';
   tripStage.startedAt = new Date().toISOString();
-  trip.currentStage = stage;
+  
+  // تحديث currentStage فقط إذا لم تكن هناك مرحلة أخرى قيد التشغيل
+  const activeStages = state.tripStages.filter(s => s.tripId === tripId && s.status === 'IN_PROGRESS');
+  if (activeStages.length === 1) {
+    trip.currentStage = stage;
+  }
 
   saveState(state);
   return { success: true };
@@ -335,9 +341,26 @@ export function finishStage(tripId: string, stage: StageName): { success: boolea
     tripStage.durationSeconds = Math.floor((now.getTime() - new Date(tripStage.startedAt).getTime()) / 1000);
   }
 
-  const currentIdx = STAGE_ORDER.indexOf(stage);
-  if (currentIdx < STAGE_ORDER.length - 1) {
-    trip.currentStage = STAGE_ORDER[currentIdx + 1];
+  // تحديث currentStage بذكاء: اختر المرحلة النشطة التالية أو الأخيرة
+  const activeStages = state.tripStages.filter(s => s.tripId === tripId && s.status === 'IN_PROGRESS');
+  if (activeStages.length > 0) {
+    // اختر المرحلة الأقدم في الترتيب
+    const sortedActive = activeStages.sort((a, b) => 
+      STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage)
+    );
+    trip.currentStage = sortedActive[0].stage;
+  } else {
+    // لا توجد مراحل نشطة، اختر المرحلة التالية غير المكتملة
+    const pendingStages = state.tripStages.filter(s => s.tripId === tripId && s.status === 'PENDING');
+    if (pendingStages.length > 0) {
+      const sortedPending = pendingStages.sort((a, b) => 
+        STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage)
+      );
+      trip.currentStage = sortedPending[0].stage;
+    } else {
+      // جميع المراحل مكتملة
+      trip.currentStage = 'COMPLETED';
+    }
   }
 
   if (stage === 'CASHIER') {

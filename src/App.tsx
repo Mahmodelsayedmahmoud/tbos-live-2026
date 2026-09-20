@@ -498,6 +498,7 @@ function IncomingPage() {
   const [couriers] = useState(db.getCouriers());
   const [selectedCourier, setSelectedCourier] = useState('');
   const [selectedBranch, setSelectedBranch] = useState('');
+  const [startPreparation, setStartPreparation] = useState(false);
   const [branches] = useState(db.getBranches());
   const [trips, setTrips] = useState(db.getTrips());
   const [error, setError] = useState('');
@@ -508,9 +509,16 @@ function IncomingPage() {
       return;
     }
     const result = db.checkIn(selectedCourier, selectedBranch);
-    if (result.success) {
+    if (result.success && result.trip) {
       setError('');
+      
+      // إذا تم تحديد بدء التحضير المسبق، ابدأ مرحلة التحضير فوراً
+      if (startPreparation) {
+        db.startStage(result.trip.id, 'PREPARATION');
+      }
+      
       setSelectedCourier('');
+      setStartPreparation(false);
       setTrips(db.getTrips());
       refresh();
     } else {
@@ -544,6 +552,28 @@ function IncomingPage() {
             <ArrowDownCircle size={18} />
             {t('incoming.register', lang)}
           </button>
+        </div>
+        
+        {/* خيار بدء التحضير المسبق */}
+        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={startPreparation}
+              onChange={e => setStartPreparation(e.target.checked)}
+              className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+            />
+            <div className="flex-1">
+              <p className="font-medium text-gray-800">
+                {lang === 'ar' ? 'بدء التحضير المسبق' : 'Start Preparation in Advance'}
+              </p>
+              <p className="text-sm text-gray-600">
+                {lang === 'ar' 
+                  ? 'بدء مرحلة التحضير وتجهيز الطلب فوراً (حتى قبل وصول المندوب)'
+                  : 'Start preparation stage immediately (even before courier arrives)'}
+              </p>
+            </div>
+          </label>
         </div>
       </div>
 
@@ -616,6 +646,12 @@ function WorkflowPage() {
     }
   };
 
+  // الحصول على جميع المراحل النشطة للرحلة
+  const getActiveStages = (tripId: string) => {
+    const stages = db.getTripStages(tripId);
+    return stages.filter(s => s.status === 'IN_PROGRESS');
+  };
+
   return (
     <div className="space-y-6 animate-slide-up">
       <h2 className="text-2xl font-bold text-gray-800">{t('workflow.title', lang)}</h2>
@@ -631,13 +667,8 @@ function WorkflowPage() {
             const courier = db.getCourier(trip.courierId);
             const branch = db.getBranch(trip.branchId);
             const stages = db.getTripStages(trip.id);
-            const currentStageData = stages.find(s => s.stage === trip.currentStage);
+            const activeStages = getActiveStages(trip.id);
             const decision = db.getLatestDecision(trip.id);
-
-            let liveDuration = 0;
-            if (currentStageData?.startedAt && currentStageData.status === 'IN_PROGRESS') {
-              liveDuration = Math.floor((Date.now() - new Date(currentStageData.startedAt).getTime()) / 1000);
-            }
 
             return (
               <div key={trip.id} className="card p-5">
@@ -656,14 +687,27 @@ function WorkflowPage() {
                     <span className="text-gray-600">{t('couriers.branch', lang)}:</span>
                     <span className="font-medium">{branch?.name}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">{t('workflow.current_stage', lang)}:</span>
-                    <span className="badge badge-blue">{t(`stage.${trip.currentStage}`, lang)}</span>
-                  </div>
-                  {currentStageData?.status === 'IN_PROGRESS' && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">{t('workflow.duration', lang)}:</span>
-                      <span className="font-mono text-indigo-600 font-bold animate-pulse-live">{formatDuration(liveDuration, lang)}</span>
+                  
+                  {/* عرض جميع المراحل النشطة */}
+                  {activeStages.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs text-gray-500 mb-1">
+                        {lang === 'ar' ? 'المراحل النشطة:' : 'Active Stages:'}
+                      </p>
+                      {activeStages.map(stage => {
+                        let liveDuration = 0;
+                        if (stage.startedAt) {
+                          liveDuration = Math.floor((Date.now() - new Date(stage.startedAt).getTime()) / 1000);
+                        }
+                        return (
+                          <div key={stage.id} className="flex justify-between items-center p-2 bg-blue-50 rounded mb-1">
+                            <span className="badge badge-blue">{t(`stage.${stage.stage}`, lang)}</span>
+                            <span className="font-mono text-xs text-indigo-600 font-bold animate-pulse-live">
+                              {formatDuration(liveDuration, lang)}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -675,18 +719,33 @@ function WorkflowPage() {
                   </div>
                 )}
 
-                <div className="mt-4 flex gap-2">
-                  {currentStageData?.status === 'PENDING' && (
-                    <button onClick={() => handleStart(trip.id, trip.currentStage)} className="btn btn-success flex-1">
-                      <Play size={14} />
-                      {t('workflow.start', lang)}
-                    </button>
-                  )}
-                  {currentStageData?.status === 'IN_PROGRESS' && (
-                    <button onClick={() => handleFinish(trip.id, trip.currentStage)} className="btn btn-danger flex-1">
+                {/* أزرار التحكم في المراحل النشطة */}
+                <div className="mt-4 space-y-2">
+                  {activeStages.map(stage => (
+                    <button
+                      key={stage.id}
+                      onClick={() => handleFinish(trip.id, stage.stage)}
+                      className="btn btn-danger w-full"
+                    >
                       <Square size={14} />
-                      {t('workflow.finish', lang)}
+                      {lang === 'ar' ? `إنهاء ${t(`stage.${stage.stage}`, lang)}` : `Finish ${stage.stage}`}
                     </button>
+                  ))}
+                  
+                  {/* عرض المراحل المتاحة للبدء */}
+                  {activeStages.length === 0 && (
+                    <div className="space-y-2">
+                      {stages.filter(s => s.status === 'PENDING').slice(0, 3).map(stage => (
+                        <button
+                          key={stage.id}
+                          onClick={() => handleStart(trip.id, stage.stage)}
+                          className="btn btn-success w-full"
+                        >
+                          <Play size={14} />
+                          {lang === 'ar' ? `بدء ${t(`stage.${stage.stage}`, lang)}` : `Start ${stage.stage}`}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
