@@ -271,3 +271,110 @@ table tr:hover td {
     display: none !important;
   }
 }
+
+/* Dark Mode Styles */
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background: #0f172a !important;
+  color: #e2e8f0;
+}
+
+html.dark .sidebar {
+  background: #1e293b !important;
+  border-left-color: #334155;
+}
+
+html.dark .card {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+html.dark .card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+html.dark table {
+  color: #e2e8f0;
+}
+
+html.dark table th {
+  background: #0f172a;
+  color: #cbd5e1;
+  border-bottom-color: #334155;
+}
+
+html.dark table td {
+  border-bottom-color: #1e293b;
+}
+
+html.dark table tr:hover td {
+  background: #0f172a;
+}
+
+html.dark .input {
+  background: #0f172a;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+html.dark .input:focus {
+  border-color: #3b82f6;
+  background: #1e293b;
+}
+
+html.dark .btn-outline {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-color: #334155;
+}
+
+html.dark .btn-outline:hover {
+  background: #334155;
+  border-color: #3b82f6;
+}
+
+html.dark header {
+  background: #1e293b !important;
+  border-bottom-color: #334155 !important;
+}
+
+html.dark .text-gray-800 {
+  color: #e2e8f0 !important;
+}
+
+html.dark .text-gray-700 {
+  color: #cbd5e1 !important;
+}
+
+html.dark .text-gray-600 {
+  color: #94a3b8 !important;
+}
+
+html.dark .text-gray-500 {
+  color: #64748b !important;
+}
+
+html.dark .bg-gray-50 {
+  background: #0f172a !important;
+}
+
+html.dark .bg-white {
+  background: #1e293b !important;
+}
+
+html.dark .border-gray-200 {
+  border-color: #334155 !important;
+}
+
+html.dark .border-gray-100 {
+  border-color: #1e293b !important;
+}
+
+/* Smooth Transitions */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
