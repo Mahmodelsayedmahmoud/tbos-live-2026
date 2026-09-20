@@ -220,6 +220,14 @@ export function getBranch(id: string): Branch | undefined {
   return state.branches.find(b => b.id === id);
 }
 
+export function updateBranch(id: string, updates: Partial<Branch>): Branch | null {
+  const idx = state.branches.findIndex(b => b.id === id);
+  if (idx === -1) return null;
+  state.branches[idx] = { ...state.branches[idx], ...updates };
+  saveState(state);
+  return state.branches[idx];
+}
+
 // Couriers
 export function getCouriers(branchId?: string): Courier[] {
   if (branchId) return state.couriers.filter(c => c.branchId === branchId);

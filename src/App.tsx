@@ -698,13 +698,639 @@ function WorkflowPage() {
   );
 }
 
-// Simple placeholder pages
-function SimplePage({ title }: { title: string }) {
+// Couriers Page
+function CouriersPage() {
+  const { lang } = useApp();
+  const [couriers] = useState(db.getCouriers());
+  const [branches] = useState(db.getBranches());
+
   return (
     <div className="space-y-6 animate-slide-up">
-      <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
-      <div className="card p-12 text-center text-gray-500">
-        <p>قيد التطوير</p>
+      <h2 className="text-2xl font-bold text-gray-800">{t('couriers.title', lang)}</h2>
+
+      <div className="card p-6">
+        <table>
+          <thead>
+            <tr>
+              <th>{t('couriers.code', lang)}</th>
+              <th>{t('couriers.name', lang)}</th>
+              <th>{t('couriers.phone', lang)}</th>
+              <th>{t('couriers.branch', lang)}</th>
+              <th>{t('couriers.status', lang)}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {couriers.map(courier => {
+              const branch = branches.find(b => b.id === courier.branchId);
+              return (
+                <tr key={courier.id}>
+                  <td className="font-mono">{courier.code}</td>
+                  <td>{courier.name}</td>
+                  <td>{courier.phone}</td>
+                  <td>{branch?.name}</td>
+                  <td><span className="badge badge-green">{courier.status}</span></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// Preparation Page
+function PreparationPage() {
+  const { lang, refresh } = useApp();
+  const [, setTick] = useState(0);
+  const trips = db.getTrips().filter(t => (t.status === 'ACTIVE' || t.status === 'WAITING') && t.currentStage === 'PREPARATION');
+
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => refresh(), 3000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  const handleStart = (tripId: string) => {
+    const result = db.startStage(tripId, 'PREPARATION');
+    if (result.success) refresh();
+    else alert(result.error);
+  };
+
+  const handleFinish = (tripId: string) => {
+    const result = db.finishStage(tripId, 'PREPARATION');
+    if (result.success) refresh();
+    else alert(result.error);
+  };
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('nav.preparation', lang)}</h2>
+      {trips.length === 0 ? (
+        <div className="card text-center py-12 text-gray-500">
+          <Package size={48} className="mx-auto mb-4 opacity-50" />
+          <p>{t('common.no_data', lang)}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {trips.map(trip => {
+            const courier = db.getCourier(trip.courierId);
+            const branch = db.getBranch(trip.branchId);
+            const stages = db.getTripStages(trip.id);
+            const stageData = stages.find(s => s.stage === 'PREPARATION');
+            let liveDuration = 0;
+            if (stageData?.startedAt && stageData.status === 'IN_PROGRESS') {
+              liveDuration = Math.floor((Date.now() - new Date(stageData.startedAt).getTime()) / 1000);
+            }
+            return (
+              <div key={trip.id} className="card p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="font-bold text-gray-800">{courier?.name}</p>
+                    <p className="text-xs text-gray-500">{courier?.code} • {trip.tripNumber}</p>
+                  </div>
+                  <span className={`badge ${trip.status === 'ACTIVE' ? 'badge-green' : 'badge-orange'}`}>{trip.status}</span>
+                </div>
+                <div className="space-y-2 text-sm mb-3">
+                  <div className="flex justify-between"><span className="text-gray-600">{t('couriers.branch', lang)}:</span><span className="font-medium">{branch?.name}</span></div>
+                  {stageData?.status === 'IN_PROGRESS' && (
+                    <div className="flex justify-between"><span className="text-gray-600">{t('workflow.duration', lang)}:</span><span className="font-mono text-indigo-600 font-bold animate-pulse-live">{formatDuration(liveDuration, lang)}</span></div>
+                  )}
+                </div>
+                <div className="mt-4 flex gap-2">
+                  {stageData?.status === 'PENDING' && (
+                    <button onClick={() => handleStart(trip.id)} className="btn btn-success flex-1"><Play size={14} />{t('workflow.start', lang)}</button>
+                  )}
+                  {stageData?.status === 'IN_PROGRESS' && (
+                    <button onClick={() => handleFinish(trip.id)} className="btn btn-danger flex-1"><Square size={14} />{t('workflow.finish', lang)}</button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Inventory Page
+function InventoryPage() {
+  const { lang, refresh } = useApp();
+  const [, setTick] = useState(0);
+  const trips = db.getTrips().filter(t => (t.status === 'ACTIVE' || t.status === 'WAITING') && t.currentStage === 'INVENTORY');
+
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => refresh(), 3000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  const handleStart = (tripId: string) => {
+    const result = db.startStage(tripId, 'INVENTORY');
+    if (result.success) refresh();
+    else alert(result.error);
+  };
+
+  const handleFinish = (tripId: string) => {
+    const result = db.finishStage(tripId, 'INVENTORY');
+    if (result.success) refresh();
+    else alert(result.error);
+  };
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('nav.inventory', lang)}</h2>
+      {trips.length === 0 ? (
+        <div className="card text-center py-12 text-gray-500">
+          <ClipboardList size={48} className="mx-auto mb-4 opacity-50" />
+          <p>{t('common.no_data', lang)}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {trips.map(trip => {
+            const courier = db.getCourier(trip.courierId);
+            const branch = db.getBranch(trip.branchId);
+            const stages = db.getTripStages(trip.id);
+            const stageData = stages.find(s => s.stage === 'INVENTORY');
+            let liveDuration = 0;
+            if (stageData?.startedAt && stageData.status === 'IN_PROGRESS') {
+              liveDuration = Math.floor((Date.now() - new Date(stageData.startedAt).getTime()) / 1000);
+            }
+            return (
+              <div key={trip.id} className="card p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="font-bold text-gray-800">{courier?.name}</p>
+                    <p className="text-xs text-gray-500">{courier?.code} • {trip.tripNumber}</p>
+                  </div>
+                  <span className={`badge ${trip.status === 'ACTIVE' ? 'badge-green' : 'badge-orange'}`}>{trip.status}</span>
+                </div>
+                <div className="space-y-2 text-sm mb-3">
+                  <div className="flex justify-between"><span className="text-gray-600">{t('couriers.branch', lang)}:</span><span className="font-medium">{branch?.name}</span></div>
+                  {stageData?.status === 'IN_PROGRESS' && (
+                    <div className="flex justify-between"><span className="text-gray-600">{t('workflow.duration', lang)}:</span><span className="font-mono text-indigo-600 font-bold animate-pulse-live">{formatDuration(liveDuration, lang)}</span></div>
+                  )}
+                </div>
+                <div className="mt-4 flex gap-2">
+                  {stageData?.status === 'PENDING' && (
+                    <button onClick={() => handleStart(trip.id)} className="btn btn-success flex-1"><Play size={14} />{t('workflow.start', lang)}</button>
+                  )}
+                  {stageData?.status === 'IN_PROGRESS' && (
+                    <button onClick={() => handleFinish(trip.id)} className="btn btn-danger flex-1"><Square size={14} />{t('workflow.finish', lang)}</button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Loading Page
+function LoadingPage() {
+  const { lang, refresh } = useApp();
+  const [, setTick] = useState(0);
+  const trips = db.getTrips().filter(t => (t.status === 'ACTIVE' || t.status === 'WAITING') && t.currentStage === 'LOADING');
+
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => refresh(), 3000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  const handleStart = (tripId: string) => {
+    const result = db.startStage(tripId, 'LOADING');
+    if (result.success) refresh();
+    else alert(result.error);
+  };
+
+  const handleFinish = (tripId: string) => {
+    const result = db.finishStage(tripId, 'LOADING');
+    if (result.success) {
+      db.runDecisionEngine(tripId);
+      refresh();
+    } else {
+      alert(result.error);
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('nav.loading', lang)}</h2>
+      {trips.length === 0 ? (
+        <div className="card text-center py-12 text-gray-500">
+          <Truck size={48} className="mx-auto mb-4 opacity-50" />
+          <p>{t('common.no_data', lang)}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {trips.map(trip => {
+            const courier = db.getCourier(trip.courierId);
+            const branch = db.getBranch(trip.branchId);
+            const stages = db.getTripStages(trip.id);
+            const stageData = stages.find(s => s.stage === 'LOADING');
+            let liveDuration = 0;
+            if (stageData?.startedAt && stageData.status === 'IN_PROGRESS') {
+              liveDuration = Math.floor((Date.now() - new Date(stageData.startedAt).getTime()) / 1000);
+            }
+            return (
+              <div key={trip.id} className="card p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="font-bold text-gray-800">{courier?.name}</p>
+                    <p className="text-xs text-gray-500">{courier?.code} • {trip.tripNumber}</p>
+                  </div>
+                  <span className={`badge ${trip.status === 'ACTIVE' ? 'badge-green' : 'badge-orange'}`}>{trip.status}</span>
+                </div>
+                <div className="space-y-2 text-sm mb-3">
+                  <div className="flex justify-between"><span className="text-gray-600">{t('couriers.branch', lang)}:</span><span className="font-medium">{branch?.name}</span></div>
+                  {stageData?.status === 'IN_PROGRESS' && (
+                    <div className="flex justify-between"><span className="text-gray-600">{t('workflow.duration', lang)}:</span><span className="font-mono text-indigo-600 font-bold animate-pulse-live">{formatDuration(liveDuration, lang)}</span></div>
+                  )}
+                </div>
+                <div className="mt-4 flex gap-2">
+                  {stageData?.status === 'PENDING' && (
+                    <button onClick={() => handleStart(trip.id)} className="btn btn-success flex-1"><Play size={14} />{t('workflow.start', lang)}</button>
+                  )}
+                  {stageData?.status === 'IN_PROGRESS' && (
+                    <button onClick={() => handleFinish(trip.id)} className="btn btn-danger flex-1"><Square size={14} />{t('workflow.finish', lang)}</button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Trips Page
+function TripsPage() {
+  const { lang } = useApp();
+  const trips = db.getTrips();
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('nav.trips', lang)}</h2>
+
+      <div className="card p-6">
+        <table>
+          <thead>
+            <tr>
+              <th>{t('incoming.trip_number', lang)}</th>
+              <th>{t('couriers.name', lang)}</th>
+              <th>{t('couriers.branch', lang)}</th>
+              <th>{t('incoming.arrival_time', lang)}</th>
+              <th>{t('workflow.current_stage', lang)}</th>
+              <th>{t('workflow.status', lang)}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {trips.length === 0 ? (
+              <tr><td colSpan={6} className="text-center text-gray-500 py-8">{t('common.no_data', lang)}</td></tr>
+            ) : trips.map(trip => {
+              const courier = db.getCourier(trip.courierId);
+              const branch = db.getBranch(trip.branchId);
+              return (
+                <tr key={trip.id}>
+                  <td className="font-mono">{trip.tripNumber}</td>
+                  <td>{courier?.name}</td>
+                  <td>{branch?.name}</td>
+                  <td>{formatTime(trip.arrivalAt, lang)}</td>
+                  <td><span className="badge badge-blue">{t(`stage.${trip.currentStage}`, lang)}</span></td>
+                  <td>
+                    <span className={`badge ${
+                      trip.status === 'ACTIVE' ? 'badge-green' :
+                      trip.status === 'COMPLETED' ? 'badge-gray' : 'badge-orange'
+                    }`}>{trip.status}</span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// Cashier Page
+function CashierPage() {
+  const { lang, refresh } = useApp();
+  const [branches] = useState(db.getBranches());
+
+  useEffect(() => {
+    const interval = setInterval(() => refresh(), 3000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  const cashierTrips = db.getTrips().filter(t => t.currentStage === 'CASHIER' && t.status === 'ACTIVE');
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('cashier.title', lang)}</h2>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {branches.map(branch => {
+          const branchTrips = cashierTrips.filter(t => t.branchId === branch.id);
+          const queueCount = db.getQueue(branch.id).filter(q => q.status === 'WAITING').length;
+          const isFull = branch.cashierOccupancy >= branch.cashierCapacity;
+
+          return (
+            <div key={branch.id} className="card p-6">
+              <h3 className="font-semibold text-gray-800 mb-3">{branch.name}</h3>
+              <div className={`p-4 rounded-lg text-center ${isFull ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'}`}>
+                <p className="text-4xl font-bold">{branch.cashierOccupancy} / {branch.cashierCapacity}</p>
+                <p className="text-sm mt-1">{isFull ? 'ممتلئ' : 'متاح'}</p>
+              </div>
+              <div className="mt-3 p-3 bg-orange-50 rounded-lg text-center">
+                <p className="text-2xl font-bold text-orange-700">{queueCount}</p>
+                <p className="text-xs text-orange-600">{t('queue.waiting', lang)}</p>
+              </div>
+              <div className="mt-3 space-y-2">
+                {branchTrips.map(trip => {
+                  const courier = db.getCourier(trip.courierId);
+                  return (
+                    <div key={trip.id} className="flex items-center justify-between p-2 bg-white rounded border">
+                      <span className="text-sm font-medium">{courier?.name}</span>
+                      <span className="text-xs text-gray-500">{trip.tripNumber}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Queue Page
+function QueuePage() {
+  const { lang, refresh } = useApp();
+  const [, setTick] = useState(0);
+  const queue = db.getQueue();
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick(t => t + 1);
+      refresh();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  const waitingQueue = queue.filter(q => q.status === 'WAITING');
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-800">{t('queue.title', lang)}</h2>
+        <span className="badge badge-orange text-sm px-3 py-1">
+          {waitingQueue.length} {t('queue.waiting', lang)}
+        </span>
+      </div>
+
+      <div className="card p-6">
+        <table>
+          <thead>
+            <tr>
+              <th>{t('queue.number', lang)}</th>
+              <th>{t('couriers.name', lang)}</th>
+              <th>{t('incoming.trip_number', lang)}</th>
+              <th>{t('couriers.branch', lang)}</th>
+              <th>{t('queue.priority', lang)}</th>
+              <th>{t('queue.position', lang)}</th>
+              <th>{t('queue.waiting', lang)}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {waitingQueue.length === 0 ? (
+              <tr><td colSpan={7} className="text-center text-gray-500 py-8">{t('common.no_data', lang)}</td></tr>
+            ) : waitingQueue.map((q, idx) => {
+              const trip = db.getTrip(q.tripId);
+              const courier = trip ? db.getCourier(trip.courierId) : null;
+              const branch = db.getBranch(q.branchId);
+              return (
+                <tr key={q.id}>
+                  <td className="font-mono font-bold">#{q.queueNumber}</td>
+                  <td>{courier?.name}</td>
+                  <td className="font-mono">{trip?.tripNumber}</td>
+                  <td>{branch?.name}</td>
+                  <td><span className="badge badge-purple">{q.priority}</span></td>
+                  <td><span className="badge badge-blue">{idx + 1}</span></td>
+                  <td><span className="badge badge-orange">{t('queue.waiting', lang)}</span></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// Reports Page
+function ReportsPage() {
+  const { lang } = useApp();
+  const trips = db.getTrips();
+
+  const exportCSV = () => {
+    const headers = ['Trip Number', 'Courier', 'Branch', 'Arrival', 'Stage', 'Status'];
+    const rows = trips.map(trip => {
+      const courier = db.getCourier(trip.courierId);
+      const branch = db.getBranch(trip.branchId);
+      return [
+        trip.tripNumber,
+        courier?.name || '',
+        branch?.name || '',
+        trip.arrivalAt,
+        trip.currentStage,
+        trip.status,
+      ].join(',');
+    });
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'tbos-report.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-800">{t('reports.title', lang)}</h2>
+        <div className="flex gap-2">
+          <button onClick={exportCSV} className="btn btn-primary">
+            {t('reports.export_csv', lang)}
+          </button>
+          <button onClick={() => window.print()} className="btn btn-outline">
+            {t('reports.print', lang)}
+          </button>
+        </div>
+      </div>
+
+      <div className="card p-6">
+        <table>
+          <thead>
+            <tr>
+              <th>{t('incoming.trip_number', lang)}</th>
+              <th>{t('couriers.name', lang)}</th>
+              <th>{t('couriers.branch', lang)}</th>
+              <th>{t('incoming.arrival_time', lang)}</th>
+              <th>{t('workflow.current_stage', lang)}</th>
+              <th>{t('workflow.status', lang)}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {trips.length === 0 ? (
+              <tr><td colSpan={6} className="text-center text-gray-500 py-8">{t('common.no_data', lang)}</td></tr>
+            ) : trips.map(trip => {
+              const courier = db.getCourier(trip.courierId);
+              const branch = db.getBranch(trip.branchId);
+              return (
+                <tr key={trip.id}>
+                  <td className="font-mono">{trip.tripNumber}</td>
+                  <td>{courier?.name}</td>
+                  <td>{branch?.name}</td>
+                  <td>{formatTime(trip.arrivalAt, lang)}</td>
+                  <td>{t(`stage.${trip.currentStage}`, lang)}</td>
+                  <td>
+                    <span className={`badge ${
+                      trip.status === 'ACTIVE' ? 'badge-green' :
+                      trip.status === 'COMPLETED' ? 'badge-gray' : 'badge-orange'
+                    }`}>{trip.status}</span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// Users Page
+function UsersPage() {
+  const { lang } = useApp();
+  const users = db.getUsers();
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('users.title', lang)}</h2>
+
+      <div className="card p-6">
+        <table>
+          <thead>
+            <tr>
+              <th>اسم المستخدم</th>
+              <th>الاسم</th>
+              <th>{t('users.role', lang)}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map(u => (
+              <tr key={u.id}>
+                <td className="font-mono">{u.username}</td>
+                <td>{u.name}</td>
+                <td><span className="badge badge-purple">{u.role}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// Settings Page
+function SettingsPage() {
+  const { lang, refresh } = useApp();
+  const [branches, setBranches] = useState(db.getBranches());
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = (id: string, updates: Partial<db.Branch>) => {
+    db.updateBranch(id, updates);
+    setBranches(db.getBranches());
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+    refresh();
+  };
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('settings.title', lang)}</h2>
+
+      {saved && (
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-lg text-sm">
+          ✓ {t('settings.saved', lang)}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {branches.map(branch => (
+          <BranchSettingsCard key={branch.id} branch={branch} onSave={handleSave} lang={lang} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BranchSettingsCard({ branch, onSave, lang }: { branch: db.Branch; onSave: (id: string, updates: Partial<db.Branch>) => void; lang: Lang }) {
+  const [cashierCapacity, setCashierCapacity] = useState(branch.cashierCapacity);
+  const [dockCapacity, setDockCapacity] = useState(branch.dockCapacity);
+  const [maxQueue, setMaxQueue] = useState(branch.maxQueue);
+  const [status, setStatus] = useState(branch.operationalStatus);
+
+  return (
+    <div className="card p-6">
+      <h3 className="font-semibold text-gray-800 mb-4">{branch.name} ({branch.code})</h3>
+      <div className="space-y-3">
+        <div>
+          <label className="block text-sm text-gray-600 mb-1">{t('settings.cashier_capacity', lang)}</label>
+          <input type="number" min={1} value={cashierCapacity} onChange={e => setCashierCapacity(Number(e.target.value))} className="input" />
+        </div>
+        <div>
+          <label className="block text-sm text-gray-600 mb-1">{t('settings.dock_capacity', lang)}</label>
+          <input type="number" min={1} value={dockCapacity} onChange={e => setDockCapacity(Number(e.target.value))} className="input" />
+        </div>
+        <div>
+          <label className="block text-sm text-gray-600 mb-1">{t('settings.max_queue', lang)}</label>
+          <input type="number" min={1} value={maxQueue} onChange={e => setMaxQueue(Number(e.target.value))} className="input" />
+        </div>
+        <div>
+          <label className="block text-sm text-gray-600 mb-1">{t('settings.operational_status', lang)}</label>
+          <select value={status} onChange={e => setStatus(e.target.value as db.Branch['operationalStatus'])} className="input">
+            <option value="ACTIVE">نشط</option>
+            <option value="PAUSED">متوقف</option>
+          </select>
+        </div>
+        <button
+          onClick={() => onSave(branch.id, { cashierCapacity, dockCapacity, maxQueue, operationalStatus: status })}
+          className="btn btn-primary w-full"
+        >
+          {t('settings.save', lang)}
+        </button>
       </div>
     </div>
   );
@@ -742,17 +1368,17 @@ export default function App() {
           } />
           <Route path="/inbound" element={<ProtectedRoute><Layout><InboundPage /></Layout></ProtectedRoute>} />
           <Route path="/incoming" element={<ProtectedRoute><Layout><IncomingPage /></Layout></ProtectedRoute>} />
-          <Route path="/couriers" element={<ProtectedRoute><Layout><SimplePage title="المندوبون" /></Layout></ProtectedRoute>} />
-          <Route path="/preparation" element={<ProtectedRoute><Layout><SimplePage title="التحضير" /></Layout></ProtectedRoute>} />
-          <Route path="/inventory" element={<ProtectedRoute><Layout><SimplePage title="الجرد" /></Layout></ProtectedRoute>} />
-          <Route path="/loading" element={<ProtectedRoute><Layout><SimplePage title="التحميل" /></Layout></ProtectedRoute>} />
+          <Route path="/couriers" element={<ProtectedRoute><Layout><CouriersPage /></Layout></ProtectedRoute>} />
+          <Route path="/preparation" element={<ProtectedRoute><Layout><PreparationPage /></Layout></ProtectedRoute>} />
+          <Route path="/inventory" element={<ProtectedRoute><Layout><InventoryPage /></Layout></ProtectedRoute>} />
+          <Route path="/loading" element={<ProtectedRoute><Layout><LoadingPage /></Layout></ProtectedRoute>} />
           <Route path="/workflow" element={<ProtectedRoute><Layout><WorkflowPage /></Layout></ProtectedRoute>} />
-          <Route path="/trips" element={<ProtectedRoute><Layout><SimplePage title="الرحلات" /></Layout></ProtectedRoute>} />
-          <Route path="/cashier" element={<ProtectedRoute><Layout><SimplePage title="الكاشير" /></Layout></ProtectedRoute>} />
-          <Route path="/queue" element={<ProtectedRoute><Layout><SimplePage title="الطابور" /></Layout></ProtectedRoute>} />
-          <Route path="/reports" element={<ProtectedRoute><Layout><SimplePage title="التقارير" /></Layout></ProtectedRoute>} />
-          <Route path="/users" element={<ProtectedRoute><Layout><SimplePage title="المستخدمون" /></Layout></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><Layout><SimplePage title="الإعدادات" /></Layout></ProtectedRoute>} />
+          <Route path="/trips" element={<ProtectedRoute><Layout><TripsPage /></Layout></ProtectedRoute>} />
+          <Route path="/cashier" element={<ProtectedRoute><Layout><CashierPage /></Layout></ProtectedRoute>} />
+          <Route path="/queue" element={<ProtectedRoute><Layout><QueuePage /></Layout></ProtectedRoute>} />
+          <Route path="/reports" element={<ProtectedRoute><Layout><ReportsPage /></Layout></ProtectedRoute>} />
+          <Route path="/users" element={<ProtectedRoute><Layout><UsersPage /></Layout></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Layout><SettingsPage /></Layout></ProtectedRoute>} />
         </Routes>
       </HashRouter>
     </AppContext.Provider>

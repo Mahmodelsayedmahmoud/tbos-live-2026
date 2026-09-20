@@ -70,6 +70,27 @@ const translations: Record<string, Record<Lang, string>> = {
   
   'cashier.title': { ar: 'الكاشير', en: 'Cashier' },
   
+  'queue.title': { ar: 'الطابور', en: 'Queue' },
+  'queue.number': { ar: 'الرقم', en: 'Number' },
+  'queue.priority': { ar: 'الأولوية', en: 'Priority' },
+  'queue.position': { ar: 'الموقع', en: 'Position' },
+  'queue.waiting': { ar: 'ينتظر', en: 'Waiting' },
+  
+  'reports.title': { ar: 'التقارير', en: 'Reports' },
+  'reports.export_csv': { ar: 'تصدير CSV', en: 'Export CSV' },
+  'reports.print': { ar: 'طباعة', en: 'Print' },
+  
+  'users.title': { ar: 'المستخدمون', en: 'Users' },
+  'users.role': { ar: 'الدور', en: 'Role' },
+  
+  'settings.title': { ar: 'الإعدادات', en: 'Settings' },
+  'settings.cashier_capacity': { ar: 'سعة الكاشير', en: 'Cashier Capacity' },
+  'settings.dock_capacity': { ar: 'سعة الرصيف', en: 'Dock Capacity' },
+  'settings.max_queue': { ar: 'الحد الأقصى للطابور', en: 'Max Queue' },
+  'settings.operational_status': { ar: 'الحالة التشغيلية', en: 'Operational Status' },
+  'settings.save': { ar: 'حفظ', en: 'Save' },
+  'settings.saved': { ar: 'تم الحفظ', en: 'Saved' },
+  
   'common.no_data': { ar: 'لا توجد بيانات', en: 'No data' },
   'common.minutes': { ar: 'دقيقة', en: 'min' },
   'common.seconds': { ar: 'ثانية', en: 'sec' },
