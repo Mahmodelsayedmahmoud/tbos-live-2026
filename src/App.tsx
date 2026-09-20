@@ -3,7 +3,7 @@ import { HashRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } f
 import {
   Home, LogIn, LogOut, Menu, X, Users, Truck, FileText, Settings,
   ClipboardList, Package, ArrowDownCircle, Play, Square, Clock, AlertTriangle,
-  CheckCircle, BarChart3, Layers, Globe, Zap, Printer, Share2, TrendingUp, Upload, Download, Activity
+  CheckCircle, BarChart3, Layers, Globe, Zap, Printer, Share2, TrendingUp, Upload, Download, Activity, RefreshCw
 } from 'lucide-react';
 import { Lang, t, formatDuration, formatTime } from './lib/i18n';
 import * as db from './lib/db';
@@ -402,9 +402,25 @@ function InboundPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // تحديث تلقائي كل 3 ثوانٍ
   useEffect(() => {
     setInbounds(db.getInbounds());
-  }, []);
+    const interval = setInterval(() => {
+      setInbounds(db.getInbounds());
+      refresh();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  // زر التحديث الفوري
+  const handleManualRefresh = () => {
+    setInbounds(db.getInbounds());
+    if (selectedInbound) {
+      const updated = db.getInbound(selectedInbound.id);
+      if (updated) setSelectedInbound(updated);
+    }
+    refresh();
+  };
 
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -527,9 +543,15 @@ function InboundPage() {
             {lang === 'ar' ? 'إدارة الكونتينرات والبضائع الواردة' : 'Manage containers and incoming goods'}
           </p>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">
-          {lang === 'ar' ? 'وارد جديد' : 'New Inbound'}
-        </button>
+        <div className="flex gap-2">
+          <button onClick={handleManualRefresh} className="btn btn-outline" title={lang === 'ar' ? 'تحديث' : 'Refresh'}>
+            <RefreshCw size={16} />
+            <span className="hidden md:inline">{lang === 'ar' ? 'تحديث' : 'Refresh'}</span>
+          </button>
+          <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">
+            {lang === 'ar' ? 'وارد جديد' : 'New Inbound'}
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -1036,9 +1058,20 @@ function WorkflowPage() {
     return stages.filter(s => s.status === 'IN_PROGRESS');
   };
 
+  // زر التحديث الفوري
+  const handleManualRefresh = () => {
+    refresh();
+  };
+
   return (
     <div className="space-y-6 animate-slide-up">
-      <h2 className="text-2xl font-bold text-gray-800">{t('workflow.title', lang)}</h2>
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <h2 className="text-2xl font-bold text-gray-800">{t('workflow.title', lang)}</h2>
+        <button onClick={handleManualRefresh} className="btn btn-outline" title={lang === 'ar' ? 'تحديث' : 'Refresh'}>
+          <RefreshCw size={16} />
+          <span className="hidden md:inline">{lang === 'ar' ? 'تحديث' : 'Refresh'}</span>
+        </button>
+      </div>
 
       {trips.length === 0 ? (
         <div className="card text-center py-12 text-gray-500">
@@ -1149,6 +1182,21 @@ function CouriersPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importResult, setImportResult] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
 
+  // تحديث تلقائي كل 3 ثوانٍ
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCouriers(db.getCouriers());
+      refresh();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  // زر التحديث الفوري
+  const handleManualRefresh = () => {
+    setCouriers(db.getCouriers());
+    refresh();
+  };
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1221,15 +1269,25 @@ function CouriersPage() {
 
   return (
     <div className="space-y-6 animate-slide-up">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <h2 className="text-2xl font-bold text-gray-800">{t('couriers.title', lang)}</h2>
-        <button
-          onClick={() => setShowImportModal(true)}
-          className="btn btn-primary"
-        >
-          <Upload size={18} />
-          {lang === 'ar' ? 'استيراد مندوبين' : 'Import Couriers'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleManualRefresh}
+            className="btn btn-outline"
+            title={lang === 'ar' ? 'تحديث' : 'Refresh'}
+          >
+            <RefreshCw size={16} />
+            <span className="hidden md:inline">{lang === 'ar' ? 'تحديث' : 'Refresh'}</span>
+          </button>
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="btn btn-primary"
+          >
+            <Upload size={18} />
+            {lang === 'ar' ? 'استيراد مندوبين' : 'Import Couriers'}
+          </button>
+        </div>
       </div>
 
       <div className="card p-6">
