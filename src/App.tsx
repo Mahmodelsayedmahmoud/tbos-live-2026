@@ -536,89 +536,181 @@ function InboundPage() {
       )}
 
       {/* قسم الأصناف للوارد المحدد */}
-      {selectedInbound && selectedInbound.status === 'IN_PROGRESS' && (
-        <div className="card p-6">
-          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <ClipboardList size={18} className="text-indigo-500" />
-            {lang === 'ar' ? 'الأصناف الواردة' : 'Inbound Items'} ({selectedInbound.items?.length || 0})
-          </h3>
-
-          {/* نموذج إضافة صنف */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4 p-4 bg-gray-50 rounded-lg">
-            <input
-              value={itemForm.itemName}
-              onChange={e => setItemForm({ ...itemForm, itemName: e.target.value })}
-              className="input"
-              placeholder={lang === 'ar' ? 'اسم الصنف' : 'Item Name'}
-            />
-            <input
-              value={itemForm.itemCode}
-              onChange={e => setItemForm({ ...itemForm, itemCode: e.target.value })}
-              className="input"
-              placeholder={lang === 'ar' ? 'كود الصنف' : 'Item Code'}
-            />
-            <input
-              type="number"
-              min="0"
-              step="1"
-              value={itemForm.quantity}
-              onChange={e => setItemForm({ ...itemForm, quantity: e.target.value })}
-              className="input"
-              placeholder={lang === 'ar' ? 'الكمية' : 'Quantity'}
-            />
-            <input
-              value={itemForm.unit}
-              onChange={e => setItemForm({ ...itemForm, unit: e.target.value })}
-              className="input"
-              placeholder={lang === 'ar' ? 'الوحدة' : 'Unit'}
-            />
-            <button onClick={handleAddItem} className="btn btn-success">
-              <CheckCircle size={16} />
-              {lang === 'ar' ? 'إضافة' : 'Add'}
+      {selectedInbound && (
+        <div className="card p-6 border-2 border-indigo-200">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+              <ClipboardList size={20} className="text-indigo-500" />
+              {lang === 'ar' ? 'إدارة الأصناف' : 'Manage Items'} - {selectedInbound.inboundNumber}
+            </h3>
+            <button
+              onClick={() => setSelectedInbound(null)}
+              className="btn btn-outline text-xs"
+            >
+              <X size={14} />
+              {lang === 'ar' ? 'إغلاق' : 'Close'}
             </button>
           </div>
 
+          {/* معلومات الوارد */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 p-3 bg-blue-50 rounded-lg">
+            <div>
+              <p className="text-xs text-gray-600">{lang === 'ar' ? 'السائق' : 'Driver'}</p>
+              <p className="font-semibold text-gray-800">{selectedInbound.driverName}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-600">{lang === 'ar' ? 'الحاوية' : 'Container'}</p>
+              <p className="font-semibold text-gray-800">{selectedInbound.containerNumber}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-600">{lang === 'ar' ? 'عدد الأصناف' : 'Total Items'}</p>
+              <p className="font-bold text-indigo-600 text-lg">{selectedInbound.items?.length || 0}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-600">{lang === 'ar' ? 'إجمالي الكميات' : 'Total Quantity'}</p>
+              <p className="font-bold text-green-600 text-lg">
+                {selectedInbound.items?.reduce((sum: number, item: any) => sum + (parseInt(item.quantity) || 0), 0) || 0}
+              </p>
+            </div>
+          </div>
+
+          {/* نموذج إضافة صنف */}
+          <div className="mb-4">
+            <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <CheckCircle size={16} className="text-green-500" />
+              {lang === 'ar' ? 'إضافة صنف جديد' : 'Add New Item'}
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  {lang === 'ar' ? 'اسم الصنف *' : 'Item Name *'}
+                </label>
+                <input
+                  value={itemForm.itemName}
+                  onChange={e => setItemForm({ ...itemForm, itemName: e.target.value })}
+                  className="input"
+                  placeholder={lang === 'ar' ? 'مثال: كرتون' : 'Example: Carton'}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  {lang === 'ar' ? 'كود الصنف *' : 'Item Code *'}
+                </label>
+                <input
+                  value={itemForm.itemCode}
+                  onChange={e => setItemForm({ ...itemForm, itemCode: e.target.value })}
+                  className="input"
+                  placeholder={lang === 'ar' ? 'مثال: ITM-001' : 'Example: ITM-001'}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  {lang === 'ar' ? 'الكمية *' : 'Quantity *'}
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={itemForm.quantity}
+                  onChange={e => setItemForm({ ...itemForm, quantity: e.target.value })}
+                  className="input"
+                  placeholder={lang === 'ar' ? 'العدد' : 'Count'}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  {lang === 'ar' ? 'الوحدة' : 'Unit'}
+                </label>
+                <select
+                  value={itemForm.unit}
+                  onChange={e => setItemForm({ ...itemForm, unit: e.target.value })}
+                  className="input"
+                >
+                  <option value="قطعة">{lang === 'ar' ? 'قطعة' : 'Piece'}</option>
+                  <option value="كرتون">{lang === 'ar' ? 'كرتون' : 'Carton'}</option>
+                  <option value="بالته">{lang === 'ar' ? 'بالته' : 'Pallet'}</option>
+                  <option value="كيلو">{lang === 'ar' ? 'كيلو' : 'KG'}</option>
+                  <option value="طن">{lang === 'ar' ? 'طن' : 'Ton'}</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  {lang === 'ar' ? 'ملاحظات' : 'Notes'}
+                </label>
+                <input
+                  value={itemForm.notes}
+                  onChange={e => setItemForm({ ...itemForm, notes: e.target.value })}
+                  className="input"
+                  placeholder={lang === 'ar' ? 'اختياري' : 'Optional'}
+                />
+              </div>
+              <div className="flex items-end">
+                <button
+                  onClick={handleAddItem}
+                  className="btn btn-success w-full"
+                  disabled={selectedInbound.status === 'COMPLETED'}
+                >
+                  <CheckCircle size={16} />
+                  {lang === 'ar' ? 'إضافة صنف' : 'Add Item'}
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* جدول الأصناف */}
-          <div className="overflow-x-auto">
-            <table>
-              <thead>
-                <tr>
-                  <th>{lang === 'ar' ? 'كود الصنف' : 'Item Code'}</th>
-                  <th>{lang === 'ar' ? 'اسم الصنف' : 'Item Name'}</th>
-                  <th>{lang === 'ar' ? 'الكمية' : 'Quantity'}</th>
-                  <th>{lang === 'ar' ? 'الوحدة' : 'Unit'}</th>
-                  <th>{lang === 'ar' ? 'ملاحظات' : 'Notes'}</th>
-                  <th>{lang === 'ar' ? 'إجراءات' : 'Actions'}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {!selectedInbound.items || selectedInbound.items.length === 0 ? (
+          <div>
+            <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <FileText size={16} className="text-blue-500" />
+              {lang === 'ar' ? 'قائمة الأصناف المضافة' : 'Added Items List'}
+            </h4>
+            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+              <table>
+                <thead className="bg-gray-50">
                   <tr>
-                    <td colSpan={6} className="text-center text-gray-400 py-8">
-                      {lang === 'ar' ? 'لا توجد أصناف مضافة' : 'No items added'}
-                    </td>
+                    <th className="font-semibold text-gray-700">{lang === 'ar' ? '#' : '#'}</th>
+                    <th className="font-semibold text-gray-700">{lang === 'ar' ? 'كود الصنف' : 'Item Code'}</th>
+                    <th className="font-semibold text-gray-700">{lang === 'ar' ? 'اسم الصنف' : 'Item Name'}</th>
+                    <th className="font-semibold text-gray-700">{lang === 'ar' ? 'الكمية' : 'Quantity'}</th>
+                    <th className="font-semibold text-gray-700">{lang === 'ar' ? 'الوحدة' : 'Unit'}</th>
+                    <th className="font-semibold text-gray-700">{lang === 'ar' ? 'ملاحظات' : 'Notes'}</th>
+                    <th className="font-semibold text-gray-700">{lang === 'ar' ? 'إجراءات' : 'Actions'}</th>
                   </tr>
-                ) : (
-                  selectedInbound.items.map((item: any) => (
-                    <tr key={item.id}>
-                      <td className="font-mono font-bold text-indigo-600">{item.itemCode}</td>
-                      <td>{item.itemName}</td>
-                      <td className="font-bold">{item.quantity}</td>
-                      <td>{item.unit}</td>
-                      <td className="text-gray-500">{item.notes || '-'}</td>
-                      <td>
-                        <button
-                          onClick={() => handleRemoveItem(item.id)}
-                          className="btn btn-outline text-xs text-red-600 hover:bg-red-50"
-                        >
-                          <X size={14} />
-                        </button>
+                </thead>
+                <tbody>
+                  {!selectedInbound.items || selectedInbound.items.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center text-gray-400 py-8">
+                        <ClipboardList size={32} className="mx-auto mb-2 opacity-30" />
+                        <p>{lang === 'ar' ? 'لا توجد أصناف مضافة بعد' : 'No items added yet'}</p>
+                        <p className="text-xs mt-1">{lang === 'ar' ? 'استخدم النموذج أعلاه لإضافة أصناف' : 'Use the form above to add items'}</p>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    selectedInbound.items.map((item: any, index: number) => (
+                      <tr key={item.id} className="hover:bg-gray-50">
+                        <td className="text-gray-500">{index + 1}</td>
+                        <td className="font-mono font-bold text-indigo-600">{item.itemCode}</td>
+                        <td className="font-medium">{item.itemName}</td>
+                        <td className="font-bold text-green-600">{item.quantity}</td>
+                        <td>{item.unit}</td>
+                        <td className="text-gray-500 text-sm">{item.notes || '-'}</td>
+                        <td>
+                          <button
+                            onClick={() => handleRemoveItem(item.id)}
+                            className="btn btn-outline text-xs text-red-600 hover:bg-red-50"
+                            disabled={selectedInbound.status === 'COMPLETED'}
+                            title={lang === 'ar' ? 'حذف الصنف' : 'Delete Item'}
+                          >
+                            <X size={14} />
+                            {lang === 'ar' ? 'حذف' : 'Delete'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -637,6 +729,7 @@ function InboundPage() {
                   <th>{lang === 'ar' ? 'الرقم' : 'Number'}</th>
                   <th>{lang === 'ar' ? 'السائق' : 'Driver'}</th>
                   <th>{lang === 'ar' ? 'الحاوية' : 'Container'}</th>
+                  <th>{lang === 'ar' ? 'عدد الأصناف' : 'Items Count'}</th>
                   <th>{lang === 'ar' ? 'الحالة' : 'Status'}</th>
                   <th>{lang === 'ar' ? 'وقت الوارد' : 'Duration'}</th>
                   <th>{lang === 'ar' ? 'التاريخ' : 'Date'}</th>
@@ -645,10 +738,16 @@ function InboundPage() {
               </thead>
               <tbody>
                 {inbounds.map((inbound: any) => (
-                  <tr key={inbound.id}>
+                  <tr key={inbound.id} className="hover:bg-gray-50">
                     <td className="font-mono font-bold text-indigo-600">{inbound.inboundNumber || '-'}</td>
                     <td>{inbound.driverName || '-'}</td>
                     <td>{inbound.containerNumber || '-'}</td>
+                    <td>
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-purple-100 text-purple-700 font-semibold text-sm">
+                        <ClipboardList size={14} />
+                        {inbound.items?.length || 0}
+                      </span>
+                    </td>
                     <td>
                       <span className={`badge ${
                         inbound.status === 'COMPLETED' ? 'badge-green' :
@@ -677,10 +776,11 @@ function InboundPage() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => setSelectedInbound(inbound)}
-                          className="btn btn-outline text-xs"
+                          className="btn btn-primary text-xs"
+                          title={lang === 'ar' ? 'إدارة الأصناف' : 'Manage Items'}
                         >
-                          <FileText size={12} />
-                          {lang === 'ar' ? 'عرض' : 'View'}
+                          <ClipboardList size={12} />
+                          {lang === 'ar' ? 'الأصناف' : 'Items'}
                         </button>
                         {inbound.status === 'PENDING' && (
                           <button
