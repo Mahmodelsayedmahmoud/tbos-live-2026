@@ -3,7 +3,7 @@ import { HashRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } f
 import {
   Home, LogIn, LogOut, Menu, X, Users, Truck, FileText, Settings,
   ClipboardList, Package, ArrowDownCircle, Play, Square, Clock, AlertTriangle,
-  CheckCircle, BarChart3, Layers, Globe, Zap, Printer, Share2, TrendingUp, Upload, Download, Activity, RefreshCw
+  CheckCircle, BarChart3, Layers, Globe, Zap, Printer, Share2, TrendingUp, Upload, Download, Activity, RefreshCw, Edit, Trash2
 } from 'lucide-react';
 import { Lang, t, formatDuration, formatTime } from './lib/i18n';
 import * as db from './lib/db';
@@ -864,6 +864,25 @@ function InboundPage() {
                             {lang === 'ar' ? 'إنهاء' : 'End'}
                           </button>
                         )}
+                        <button
+                          onClick={() => {
+                            if (window.confirm(lang === 'ar' 
+                              ? `هل أنت متأكد من حذف الوارد "${inbound.inboundNumber}"؟\nلا يمكن التراجع عن هذه العملية.`
+                              : `Are you sure you want to delete inbound "${inbound.inboundNumber}"?\nThis action cannot be undone.`)) {
+                              db.deleteInbound(inbound.id);
+                              setInbounds(db.getInbounds());
+                              if (selectedInbound?.id === inbound.id) {
+                                setSelectedInbound(null);
+                              }
+                              refresh();
+                            }
+                          }}
+                          className="btn btn-outline text-xs text-red-600 hover:bg-red-50"
+                          title={lang === 'ar' ? 'حذف الوارد' : 'Delete Inbound'}
+                        >
+                          <Trash2 size={12} />
+                          {lang === 'ar' ? 'حذف' : 'Delete'}
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -1164,6 +1183,44 @@ function WorkflowPage() {
                       ))}
                     </div>
                   )}
+
+                  {/* أزرار التعديل والحذف */}
+                  <div className="mt-4 pt-4 border-t border-gray-200 flex gap-2">
+                    <button
+                      onClick={() => {
+                        const newStatus = prompt(
+                          lang === 'ar' 
+                            ? `تغيير حالة الرحلة ${trip.tripNumber}:\n(ACTIVE, WAITING, COMPLETED, CANCELLED)`
+                            : `Change status for trip ${trip.tripNumber}:\n(ACTIVE, WAITING, COMPLETED, CANCELLED)`,
+                          trip.status
+                        );
+                        if (newStatus && ['ACTIVE', 'WAITING', 'COMPLETED', 'CANCELLED'].includes(newStatus)) {
+                          db.updateTripStatus(trip.id, newStatus as db.TripStatus);
+                          refresh();
+                        }
+                      }}
+                      className="btn btn-outline text-xs flex-1"
+                      title={lang === 'ar' ? 'تعديل الحالة' : 'Edit Status'}
+                    >
+                      <Edit size={12} />
+                      {lang === 'ar' ? 'تعديل' : 'Edit'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(lang === 'ar'
+                          ? `هل أنت متأكد من حذف الرحلة "${trip.tripNumber}"؟\nسيتم حذف جميع المراحل المرتبطة.\nلا يمكن التراجع عن هذه العملية.`
+                          : `Are you sure you want to delete trip "${trip.tripNumber}"?\nAll related stages will be deleted.\nThis action cannot be undone.`)) {
+                          db.deleteTrip(trip.id);
+                          refresh();
+                        }
+                      }}
+                      className="btn btn-outline text-xs text-red-600 hover:bg-red-50 flex-1"
+                      title={lang === 'ar' ? 'حذف الرحلة' : 'Delete Trip'}
+                    >
+                      <Trash2 size={12} />
+                      {lang === 'ar' ? 'حذف' : 'Delete'}
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -1299,6 +1356,7 @@ function CouriersPage() {
               <th>{t('couriers.phone', lang)}</th>
               <th>{t('couriers.branch', lang)}</th>
               <th>{t('couriers.status', lang)}</th>
+              <th>{lang === 'ar' ? 'الإجراءات' : 'Actions'}</th>
             </tr>
           </thead>
           <tbody>
@@ -1311,6 +1369,41 @@ function CouriersPage() {
                   <td>{courier.phone}</td>
                   <td>{branch?.name}</td>
                   <td><span className="badge badge-green">{courier.status}</span></td>
+                  <td>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          const newName = prompt(lang === 'ar' ? 'أدخل الاسم الجديد:' : 'Enter new name:', courier.name);
+                          if (newName && newName !== courier.name) {
+                            db.updateCourier(courier.id, { name: newName });
+                            setCouriers(db.getCouriers());
+                            refresh();
+                          }
+                        }}
+                        className="btn btn-outline text-xs"
+                        title={lang === 'ar' ? 'تعديل' : 'Edit'}
+                      >
+                        <Edit size={12} />
+                        {lang === 'ar' ? 'تعديل' : 'Edit'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm(lang === 'ar'
+                            ? `هل أنت متأكد من حذف المندوب "${courier.name}"؟\nلا يمكن التراجع عن هذه العملية.`
+                            : `Are you sure you want to delete courier "${courier.name}"?\nThis action cannot be undone.`)) {
+                            db.deleteCourier(courier.id);
+                            setCouriers(db.getCouriers());
+                            refresh();
+                          }
+                        }}
+                        className="btn btn-outline text-xs text-red-600 hover:bg-red-50"
+                        title={lang === 'ar' ? 'حذف' : 'Delete'}
+                      >
+                        <Trash2 size={12} />
+                        {lang === 'ar' ? 'حذف' : 'Delete'}
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               );
             })}

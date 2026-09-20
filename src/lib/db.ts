@@ -660,6 +660,52 @@ export function hasPermission(role: UserRole, permission: string): boolean {
   return perms.includes(permission);
 }
 
+// Delete Functions
+export function deleteInbound(id: string): boolean {
+  const idx = state.inbound.findIndex(i => i.id === id);
+  if (idx === -1) return false;
+  state.inbound.splice(idx, 1);
+  saveState(state);
+  return true;
+}
+
+export function deleteCourier(id: string): boolean {
+  const idx = state.couriers.findIndex(c => c.id === id);
+  if (idx === -1) return false;
+  state.couriers.splice(idx, 1);
+  saveState(state);
+  return true;
+}
+
+export function updateCourier(id: string, updates: Partial<Courier>): Courier | null {
+  const idx = state.couriers.findIndex(c => c.id === id);
+  if (idx === -1) return null;
+  state.couriers[idx] = { ...state.couriers[idx], ...updates };
+  saveState(state);
+  return state.couriers[idx];
+}
+
+export function deleteTrip(id: string): boolean {
+  const idx = state.trips.findIndex(t => t.id === id);
+  if (idx === -1) return false;
+  state.trips.splice(idx, 1);
+  // حذف المراحل المرتبطة
+  state.tripStages = state.tripStages.filter(s => s.tripId !== id);
+  saveState(state);
+  return true;
+}
+
+export function updateTripStatus(id: string, status: TripStatus): Trip | null {
+  const idx = state.trips.findIndex(t => t.id === id);
+  if (idx === -1) return null;
+  state.trips[idx].status = status;
+  if (status === 'COMPLETED') {
+    state.trips[idx].completedAt = new Date().toISOString();
+  }
+  saveState(state);
+  return state.trips[idx];
+}
+
 // Dashboard Stats
 export function getDashboardStats(branchId?: string) {
   let trips = [...state.trips];
