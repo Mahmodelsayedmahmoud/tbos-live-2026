@@ -441,17 +441,31 @@ export function finishStage(tripId: string, stage: StageName): { success: boolea
     trip.completedAt = now.toISOString();
     const courier = state.couriers.find(c => c.id === trip.courierId);
     if (courier) courier.status = 'AVAILABLE';
+    
+    // تقليل إشغال الكاشير
+    const branch = state.branches.find(b => b.id === trip.branchId);
+    if (branch && branch.cashierOccupancy > 0) {
+      branch.cashierOccupancy--;
+      
+      // ترقية الرحلة التالية من الطابور تلقائياً
+      promoteFromQueue(branch.id);
+    }
   }
-
+  
   saveState(state);
   return { success: true };
 }
-
 // Queue
 export function getQueue(branchId?: string): QueueRecord[] {
   let items = [...state.queue];
   if (branchId) items = items.filter(q => q.branchId === branchId);
-  return items;
+  return items.sort((a, b) => {
+    // ترتيب حسب الأولوية ثم حسب وقت الدخول
+    if (a.priority !== b.priority) {
+      return a.priority - b.priority;
+    }
+    return new Date(a.enteredAt).getTime() - new Date(b.enteredAt).getTime();
+  });
 }
 
 export function getQueuePosition(tripId: string): number {
@@ -459,6 +473,90 @@ export function getQueuePosition(tripId: string): number {
   if (!branch) return 0;
   const waiting = state.queue.filter(q => q.branchId === branch && q.status === 'WAITING');
   return waiting.findIndex(q => q.tripId === tripId) + 1;
+}
+
+export function addToQueue(tripId: string, branchId: string, priority: number = 5): QueueRecord | null {
+  // التحقق من عدم وجود الرحلة في الطابور بالفعل
+  const existing = state.queue.find(q => q.tripId === tripId && q.status === 'WAITING');
+  if (existing) {
+    return existing;
+  }
+
+  // حساب رقم الطابور التالي
+  const branchQueue = state.queue.filter(q => q.branchId === branchId);
+  const maxQueueNumber = branchQueue.length > 0 
+    ? Math.max(...branchQueue.map(q => q.queueNumber))
+    : 0;
+
+  const queueRecord: QueueRecord = {
+    id: generateId(),
+    tripId,
+    branchId,
+    queueNumber: maxQueueNumber + 1,
+    priority,
+    enteredAt: new Date().toISOString(),
+    status: 'WAITING',
+  };
+
+  state.queue.push(queueRecord);
+  saveState(state);
+  
+  return queueRecord;
+}
+
+export function promoteFromQueue(branchId: string): QueueRecord | null {
+  const branch = state.branches.find(b => b.id === branchId);
+  if (!branch) return null;
+
+  // التحقق من وجود مساحة في الكاشير
+  if (branch.cashierOccupancy >= branch.cashierCapacity) {
+    return null;
+  }
+
+  // الحصول على أول رحلة في الطابور (حسب الأولوية ثم وقت الدخول)
+  const waitingQueue = state.queue
+    .filter(q => q.branchId === branchId && q.status === 'WAITING')
+    .sort((a, b) => {
+      if (a.priority !== b.priority) {
+        return a.priority - b.priority;
+      }
+      return new Date(a.enteredAt).getTime() - new Date(b.enteredAt).getTime();
+    });
+
+  if (waitingQueue.length === 0) {
+    return null;
+  }
+
+  const nextInQueue = waitingQueue[0];
+  
+  // تحديث حالة الطابور
+  nextInQueue.status = 'PROMOTED';
+  
+  // زيادة إشغال الكاشير
+  branch.cashierOccupancy++;
+  
+  // تحديث حالة الرحلة
+  const trip = state.trips.find(t => t.id === nextInQueue.tripId);
+  if (trip) {
+    trip.status = 'ACTIVE';
+    trip.currentStage = 'CASHIER';
+    
+    // بدء مرحلة الكاشير
+    const cashierStage = state.tripStages.find(s => s.tripId === trip.id && s.stage === 'CASHIER');
+    if (cashierStage) {
+      cashierStage.status = 'IN_PROGRESS';
+      cashierStage.startedAt = new Date().toISOString();
+    }
+    
+    // تحديث حالة المندوب
+    const courier = state.couriers.find(c => c.id === trip.courierId);
+    if (courier) {
+      courier.status = 'IN_CASHIER';
+    }
+  }
+  
+  saveState(state);
+  return nextInQueue;
 }
 
 // Decisions
@@ -499,15 +597,44 @@ export function runDecisionEngine(tripId: string): SystemDecision | null {
     reasonEn = 'Loading not ready';
   } else if (branch.cashierOccupancy >= branch.cashierCapacity) {
     decision = 'WAIT_CASHIER';
-    reasonAr = 'الكاشير ممتلئ';
-    reasonEn = 'Cashier full';
+    reasonAr = 'الكاشير ممتلئ - انتظر على الرصيف';
+    reasonEn = 'Cashier full - wait on dock';
+    
+    // إضافة الرحلة إلى الطابور تلقائياً
+    const queueRecord = addToQueue(tripId, branch.id, 5);
+    
+    // تحديث حالة الرحلة إلى WAITING
+    trip.status = 'WAITING';
+    
+    // تحديث حالة المندوب إلى WAITING
+    const courier = state.couriers.find(c => c.id === trip.courierId);
+    if (courier) {
+      courier.status = 'WAITING';
+    }
+    
+    // حفظ queueId في القرار
+    const sysDecision: SystemDecision = {
+      id: generateId(),
+      tripId,
+      branchId: branch.id,
+      decision,
+      reasonAr,
+      reasonEn,
+      priority: 5,
+      queueId: queueRecord ? queueRecord.id : null,
+      createdAt: new Date().toISOString(),
+    };
+    state.decisions.push(sysDecision);
+    saveState(state);
+    
+    return sysDecision;
   } else {
     decision = 'GO_TO_CASHIER';
     reasonAr = 'الكاشير متاح';
     reasonEn = 'Cashier available';
     branch.cashierOccupancy++;
   }
-
+  
   const sysDecision: SystemDecision = {
     id: generateId(),
     tripId,
@@ -521,9 +648,8 @@ export function runDecisionEngine(tripId: string): SystemDecision | null {
   };
   state.decisions.push(sysDecision);
   saveState(state);
-
-  return sysDecision;
-}
+  
+  return sysDecision;}
 
 // Inbound
 export function getInbounds(branchId?: string): Inbound[] {
