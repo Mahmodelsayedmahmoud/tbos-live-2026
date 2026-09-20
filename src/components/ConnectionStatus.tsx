@@ -1,17 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import * as React from 'react';
 import { Wifi, WifiOff } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase-config';
 import { Lang } from '../lib/i18n';
+import * as db from '../lib/db';
 
 interface ConnectionStatusProps {
   lang: Lang;
 }
 
 export default function ConnectionStatus({ lang }: ConnectionStatusProps) {
-  const [isConnected, setIsConnected] = useState(false);
-  const [isChecking, setIsChecking] = useState(true);
+  const [isConnected, setIsConnected] = React.useState(true);
+  const [isChecking, setIsChecking] = React.useState(false);
 
-  useEffect(() => {
+  React.useEffect(() => {
+    // فحص الاتصال مع localStorage
     checkConnection();
     
     // فحص الاتصال كل 30 ثانية
@@ -20,22 +21,21 @@ export default function ConnectionStatus({ lang }: ConnectionStatusProps) {
     return () => clearInterval(interval);
   }, []);
 
-  const checkConnection = async () => {
+  const checkConnection = () => {
     setIsChecking(true);
     
     try {
-      if (!isSupabaseConfigured()) {
-        setIsConnected(false);
-        setIsChecking(false);
-        return;
-      }
-
-      // محاولة جلب بيانات بسيطة للتحقق من الاتصال
-      const { error } = await supabase!
-        .from('branches')
-        .select('count', { count: 'exact', head: true });
-
-      setIsConnected(!error);
+      // التحقق من أن localStorage يعمل
+      const testKey = '__tbos_connection_test__';
+      localStorage.setItem(testKey, 'test');
+      const value = localStorage.getItem(testKey);
+      localStorage.removeItem(testKey);
+      
+      // التحقق من أن البيانات موجودة
+      const branches = db.getBranches();
+      const isConnectedNow = value === 'test' && branches.length > 0;
+      
+      setIsConnected(isConnectedNow);
     } catch (error) {
       console.error('Connection check failed:', error);
       setIsConnected(false);
