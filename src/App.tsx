@@ -3,10 +3,11 @@ import { HashRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } f
 import {
   Home, LogIn, LogOut, Menu, X, Users, Truck, FileText, Settings,
   ClipboardList, Package, ArrowDownCircle, Play, Square, Clock, AlertTriangle,
-  CheckCircle, BarChart3, Layers, Globe, Zap, Printer, Share2, TrendingUp
+  CheckCircle, BarChart3, Layers, Globe, Zap, Printer, Share2, TrendingUp, Upload, Download
 } from 'lucide-react';
 import { Lang, t, formatDuration, formatTime } from './lib/i18n';
 import * as db from './lib/db';
+import * as XLSX from 'xlsx';
 
 // Context
 interface AppContextType {
@@ -1081,13 +1082,70 @@ function WorkflowPage() {
 
 // Couriers Page
 function CouriersPage() {
-  const { lang } = useApp();
-  const [couriers] = useState(db.getCouriers());
+  const { lang, refresh } = useApp();
+  const [couriers, setCouriers] = useState(db.getCouriers());
   const [branches] = useState(db.getBranches());
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importResult, setImportResult] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        // تحويل البيانات إلى صيغة المندوبين
+        const couriersData = jsonData.map((row: any) => ({
+          code: row['الكود'] || row['code'] || row['Code'] || '',
+          name: row['الاسم'] || row['name'] || row['Name'] || '',
+          phone: row['الهاتف'] || row['phone'] || row['Phone'] || '',
+          branchId: row['الفرع'] || row['branchId'] || row['Branch'] || '',
+        }));
+
+        // استيراد المندوبين
+        const result = db.bulkImportCouriers(couriersData);
+        setImportResult(result);
+        setCouriers(db.getCouriers());
+        refresh();
+      } catch (error) {
+        console.error('Error reading file:', error);
+        alert(lang === 'ar' ? 'خطأ في قراءة الملف' : 'Error reading file');
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const downloadTemplate = () => {
+    const template = [
+      { 'الكود': 'C001', 'الاسم': 'أحمد محمد', 'الهاتف': '0101234567', 'الفرع': 'b1' },
+      { 'الكود': 'C002', 'الاسم': 'محمود علي', 'الهاتف': '0109876543', 'الفرع': 'b2' },
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(template);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'المندوبون');
+    XLSX.writeFile(workbook, 'couriers_template.xlsx');
+  };
 
   return (
     <div className="space-y-6 animate-slide-up">
-      <h2 className="text-2xl font-bold text-gray-800">{t('couriers.title', lang)}</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-800">{t('couriers.title', lang)}</h2>
+        <button
+          onClick={() => setShowImportModal(true)}
+          className="btn btn-primary"
+        >
+          <Upload size={18} />
+          {lang === 'ar' ? 'استيراد مندوبين' : 'Import Couriers'}
+        </button>
+      </div>
 
       <div className="card p-6">
         <table>
@@ -1116,6 +1174,150 @@ function CouriersPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-800">
+                  {lang === 'ar' ? 'استيراد المندوبين من ملف Excel' : 'Import Couriers from Excel'}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowImportModal(false);
+                    setImportResult(null);
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              {!importResult ? (
+                <div className="space-y-6">
+                  {/* Instructions */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-blue-900 mb-2">
+                      {lang === 'ar' ? 'تعليمات الاستيراد:' : 'Import Instructions:'}
+                    </h4>
+                    <ul className="text-sm text-blue-800 space-y-1">
+                      <li>• {lang === 'ar' ? 'يجب أن يحتوي الملف على الأعمدة: الكود، الاسم، الهاتف، الفرع' : 'File must contain columns: code, name, phone, branch'}</li>
+                      <li>• {lang === 'ar' ? 'الفرع يجب أن يكون معرف الفرع (b1, b2, b3)' : 'Branch must be branch ID (b1, b2, b3)'}</li>
+                      <li>• {lang === 'ar' ? 'سيتم تجاهل الصفوف التي تحتوي على أخطاء' : 'Rows with errors will be skipped'}</li>
+                    </ul>
+                  </div>
+
+                  {/* Download Template */}
+                  <div className="flex justify-center">
+                    <button
+                      onClick={downloadTemplate}
+                      className="btn btn-outline"
+                    >
+                      <Download size={18} />
+                      {lang === 'ar' ? 'تحميل نموذج Excel' : 'Download Excel Template'}
+                    </button>
+                  </div>
+
+                  {/* File Upload */}
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      id="file-upload"
+                    />
+                    <label
+                      htmlFor="file-upload"
+                      className="cursor-pointer flex flex-col items-center gap-3"
+                    >
+                      <Upload size={48} className="text-gray-400" />
+                      <div>
+                        <p className="text-lg font-medium text-gray-700">
+                          {lang === 'ar' ? 'انقر لرفع ملف Excel' : 'Click to upload Excel file'}
+                        </p>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {lang === 'ar' ? 'يدعم ملفات .xlsx و .xls' : 'Supports .xlsx and .xls files'}
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Branch IDs Reference */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-2">
+                      {lang === 'ar' ? 'معرفات الفروع المتاحة:' : 'Available Branch IDs:'}
+                    </h4>
+                    <div className="grid grid-cols-3 gap-2 text-sm">
+                      {branches.map(branch => (
+                        <div key={branch.id} className="flex justify-between">
+                          <span className="text-gray-600">{branch.name}:</span>
+                          <span className="font-mono font-bold text-indigo-600">{branch.id}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Import Result */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                      <CheckCircle size={32} className="text-green-600 mx-auto mb-2" />
+                      <p className="text-3xl font-bold text-green-700">{importResult.success}</p>
+                      <p className="text-sm text-green-600">
+                        {lang === 'ar' ? 'تم استيرادهم بنجاح' : 'Successfully imported'}
+                      </p>
+                    </div>
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                      <AlertTriangle size={32} className="text-red-600 mx-auto mb-2" />
+                      <p className="text-3xl font-bold text-red-700">{importResult.failed}</p>
+                      <p className="text-sm text-red-600">
+                        {lang === 'ar' ? 'فشل استيرادهم' : 'Failed to import'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Errors */}
+                  {importResult.errors.length > 0 && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-red-900 mb-2">
+                        {lang === 'ar' ? 'تفاصيل الأخطاء:' : 'Error Details:'}
+                      </h4>
+                      <ul className="text-sm text-red-800 space-y-1 max-h-48 overflow-y-auto">
+                        {importResult.errors.map((error, idx) => (
+                          <li key={idx}>• {error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setShowImportModal(false);
+                        setImportResult(null);
+                      }}
+                      className="btn btn-primary flex-1"
+                    >
+                      {lang === 'ar' ? 'إغلاق' : 'Close'}
+                    </button>
+                    <button
+                      onClick={() => setImportResult(null)}
+                      className="btn btn-outline flex-1"
+                    >
+                      {lang === 'ar' ? 'استيراد المزيد' : 'Import More'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

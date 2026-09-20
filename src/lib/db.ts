@@ -238,6 +238,51 @@ export function getCourier(id: string): Courier | undefined {
   return state.couriers.find(c => c.id === id);
 }
 
+export function addCourier(data: Omit<Courier, 'id' | 'status'>): Courier {
+  const courier: Courier = { ...data, id: generateId(), status: 'AVAILABLE' };
+  state.couriers.push(courier);
+  saveState(state);
+  return courier;
+}
+
+export function bulkImportCouriers(couriersData: Array<Omit<Courier, 'id' | 'status'>>): { success: number; failed: number; errors: string[] } {
+  let success = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  couriersData.forEach((data, index) => {
+    try {
+      if (!data.code || !data.name || !data.branchId) {
+        failed++;
+        errors.push(`Row ${index + 1}: Missing required fields (code, name, or branchId)`);
+        return;
+      }
+
+      const existingCourier = state.couriers.find(c => c.code === data.code);
+      if (existingCourier) {
+        failed++;
+        errors.push(`Row ${index + 1}: Courier code "${data.code}" already exists`);
+        return;
+      }
+
+      const branch = state.branches.find(b => b.id === data.branchId);
+      if (!branch) {
+        failed++;
+        errors.push(`Row ${index + 1}: Branch "${data.branchId}" not found`);
+        return;
+      }
+
+      addCourier(data);
+      success++;
+    } catch (error) {
+      failed++;
+      errors.push(`Row ${index + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  });
+
+  return { success, failed, errors };
+}
+
 // Trips
 export function getTrips(branchId?: string, status?: TripStatus): Trip[] {
   let trips = [...state.trips];
