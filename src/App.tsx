@@ -16,6 +16,7 @@ import ActivityLogViewer from './components/ActivityLog';
 import { logActivity } from './lib/auditLog';
 import { exportTripsReport, exportCouriersReport, exportInboundReport, exportPerformanceReport } from './lib/exportUtils';
 import ThemeToggle from './components/ThemeToggle';
+import ConnectionStatus from './components/ConnectionStatus';
 
 // Context
 interface AppContextType {
@@ -174,6 +175,7 @@ function Layout({ children }: { children: React.ReactNode }) {
             <Menu size={20} />
           </button>
           <div className="flex items-center gap-3">
+            <ConnectionStatus lang={lang} />
             <ThemeToggle lang={lang} />
             <button
               onClick={() => window.print()}
