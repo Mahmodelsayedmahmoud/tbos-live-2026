@@ -522,6 +522,49 @@ export function completeInbound(id: string): Inbound | null {
   return state.inbound[idx];
 }
 
+// إضافة صنف لوارد
+export function addInboundItem(
+  inboundId: string,
+  itemName: string,
+  itemCode: string,
+  quantity: number,
+  unit: string,
+  notes: string = ''
+): InboundItem | null {
+  if (!state.inbound) return null;
+  
+  const inbound = state.inbound.find(i => i.id === inboundId);
+  if (!inbound) return null;
+
+  const item: InboundItem = {
+    id: generateId(),
+    inboundId,
+    itemName,
+    itemCode,
+    quantity,
+    unit,
+    notes,
+  };
+  inbound.items.push(item);
+  saveState(state);
+  return item;
+}
+
+// حذف صنف من وارد
+export function removeInboundItem(inboundId: string, itemId: string): boolean {
+  if (!state.inbound) return false;
+  
+  const inbound = state.inbound.find(i => i.id === inboundId);
+  if (!inbound) return false;
+
+  const idx = inbound.items.findIndex(it => it.id === itemId);
+  if (idx === -1) return false;
+
+  inbound.items.splice(idx, 1);
+  saveState(state);
+  return true;
+}
+
 // Users
 export function getUsers(): User[] {
   return [...state.users];

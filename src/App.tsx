@@ -374,6 +374,14 @@ function InboundPage() {
   });
   const branches = db.getBranches() || [];
 
+  const [itemForm, setItemForm] = useState({
+    itemName: '',
+    itemCode: '',
+    quantity: '',
+    unit: 'قطعة',
+    notes: '',
+  });
+
   const handleCreate = () => {
     if (!formData.driverName || !formData.driverCode || !formData.containerNumber || !formData.branchId) {
       alert(lang === 'ar' ? 'يرجى ملء جميع الحقول المطلوبة' : 'Please fill all required fields');
@@ -398,6 +406,46 @@ function InboundPage() {
       containerType: '20ft',
       branchId: '',
     });
+  };
+
+  // إضافة صنف
+  const handleAddItem = () => {
+    if (!selectedInbound) return;
+    const quantityNum = parseInt(itemForm.quantity);
+    if (!itemForm.itemName || !itemForm.itemCode || !itemForm.quantity || quantityNum <= 0) {
+      alert(lang === 'ar' ? 'يرجى ملء جميع الحقول المطلوبة' : 'Please fill all required fields');
+      return;
+    }
+
+    db.addInboundItem(
+      selectedInbound.id,
+      itemForm.itemName,
+      itemForm.itemCode,
+      quantityNum,
+      itemForm.unit,
+      itemForm.notes
+    );
+
+    const updated = db.getInbound(selectedInbound.id);
+    if (updated) setSelectedInbound(updated);
+    setInbounds(db.getInbounds());
+    
+    setItemForm({
+      itemName: '',
+      itemCode: '',
+      quantity: '',
+      unit: 'قطعة',
+      notes: '',
+    });
+  };
+
+  // حذف صنف
+  const handleRemoveItem = (itemId: string) => {
+    if (!selectedInbound) return;
+    db.removeInboundItem(selectedInbound.id, itemId);
+    const updated = db.getInbound(selectedInbound.id);
+    if (updated) setSelectedInbound(updated);
+    setInbounds(db.getInbounds());
   };
 
   // بدء العد
@@ -487,6 +535,94 @@ function InboundPage() {
         </div>
       )}
 
+      {/* قسم الأصناف للوارد المحدد */}
+      {selectedInbound && selectedInbound.status === 'IN_PROGRESS' && (
+        <div className="card p-6">
+          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <ClipboardList size={18} className="text-indigo-500" />
+            {lang === 'ar' ? 'الأصناف الواردة' : 'Inbound Items'} ({selectedInbound.items?.length || 0})
+          </h3>
+
+          {/* نموذج إضافة صنف */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4 p-4 bg-gray-50 rounded-lg">
+            <input
+              value={itemForm.itemName}
+              onChange={e => setItemForm({ ...itemForm, itemName: e.target.value })}
+              className="input"
+              placeholder={lang === 'ar' ? 'اسم الصنف' : 'Item Name'}
+            />
+            <input
+              value={itemForm.itemCode}
+              onChange={e => setItemForm({ ...itemForm, itemCode: e.target.value })}
+              className="input"
+              placeholder={lang === 'ar' ? 'كود الصنف' : 'Item Code'}
+            />
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={itemForm.quantity}
+              onChange={e => setItemForm({ ...itemForm, quantity: e.target.value })}
+              className="input"
+              placeholder={lang === 'ar' ? 'الكمية' : 'Quantity'}
+            />
+            <input
+              value={itemForm.unit}
+              onChange={e => setItemForm({ ...itemForm, unit: e.target.value })}
+              className="input"
+              placeholder={lang === 'ar' ? 'الوحدة' : 'Unit'}
+            />
+            <button onClick={handleAddItem} className="btn btn-success">
+              <CheckCircle size={16} />
+              {lang === 'ar' ? 'إضافة' : 'Add'}
+            </button>
+          </div>
+
+          {/* جدول الأصناف */}
+          <div className="overflow-x-auto">
+            <table>
+              <thead>
+                <tr>
+                  <th>{lang === 'ar' ? 'كود الصنف' : 'Item Code'}</th>
+                  <th>{lang === 'ar' ? 'اسم الصنف' : 'Item Name'}</th>
+                  <th>{lang === 'ar' ? 'الكمية' : 'Quantity'}</th>
+                  <th>{lang === 'ar' ? 'الوحدة' : 'Unit'}</th>
+                  <th>{lang === 'ar' ? 'ملاحظات' : 'Notes'}</th>
+                  <th>{lang === 'ar' ? 'إجراءات' : 'Actions'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {!selectedInbound.items || selectedInbound.items.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center text-gray-400 py-8">
+                      {lang === 'ar' ? 'لا توجد أصناف مضافة' : 'No items added'}
+                    </td>
+                  </tr>
+                ) : (
+                  selectedInbound.items.map((item: any) => (
+                    <tr key={item.id}>
+                      <td className="font-mono font-bold text-indigo-600">{item.itemCode}</td>
+                      <td>{item.itemName}</td>
+                      <td className="font-bold">{item.quantity}</td>
+                      <td>{item.unit}</td>
+                      <td className="text-gray-500">{item.notes || '-'}</td>
+                      <td>
+                        <button
+                          onClick={() => handleRemoveItem(item.id)}
+                          className="btn btn-outline text-xs text-red-600 hover:bg-red-50"
+                        >
+                          <X size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="card p-6">
         <h3 className="font-bold text-gray-800 mb-4">
           {lang === 'ar' ? 'سجل الوارد' : 'Inbound History'} ({inbounds.length})
@@ -539,13 +675,20 @@ function InboundPage() {
                     <td className="text-gray-500">{inbound.createdAt ? formatTime(inbound.createdAt, lang) : '-'}</td>
                     <td>
                       <div className="flex gap-2">
+                        <button
+                          onClick={() => setSelectedInbound(inbound)}
+                          className="btn btn-outline text-xs"
+                        >
+                          <FileText size={12} />
+                          {lang === 'ar' ? 'عرض' : 'View'}
+                        </button>
                         {inbound.status === 'PENDING' && (
                           <button
                             onClick={() => handleStartCounting(inbound.id)}
                             className="btn btn-success text-xs"
                           >
                             <Play size={12} />
-                            {lang === 'ar' ? 'بدء العد' : 'Start'}
+                            {lang === 'ar' ? 'بدء' : 'Start'}
                           </button>
                         )}
                         {inbound.status === 'IN_PROGRESS' && (
@@ -554,7 +697,7 @@ function InboundPage() {
                             className="btn btn-danger text-xs"
                           >
                             <Square size={12} />
-                            {lang === 'ar' ? 'إنهاء العد' : 'End'}
+                            {lang === 'ar' ? 'إنهاء' : 'End'}
                           </button>
                         )}
                       </div>
