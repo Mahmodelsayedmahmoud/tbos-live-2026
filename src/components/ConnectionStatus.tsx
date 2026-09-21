@@ -1,7 +1,8 @@
 import * as React from 'react';
-import { Wifi, WifiOff } from 'lucide-react';
+import { Wifi, WifiOff, Cloud, CloudOff } from 'lucide-react';
 import { Lang } from '../lib/i18n';
 import * as db from '../lib/db';
+import { testSupabaseConnection, isSupabaseConfigured } from '../lib/supabase';
 
 interface ConnectionStatusProps {
   lang: Lang;
@@ -10,9 +11,10 @@ interface ConnectionStatusProps {
 export default function ConnectionStatus({ lang }: ConnectionStatusProps) {
   const [isConnected, setIsConnected] = React.useState(true);
   const [isChecking, setIsChecking] = React.useState(false);
+  const [syncMode, setSyncMode] = React.useState<'cloud' | 'local'>('local');
 
   React.useEffect(() => {
-    // فحص الاتصال مع localStorage
+    // فحص الاتصال
     checkConnection();
     
     // فحص الاتصال كل 30 ثانية
@@ -21,21 +23,31 @@ export default function ConnectionStatus({ lang }: ConnectionStatusProps) {
     return () => clearInterval(interval);
   }, []);
 
-  const checkConnection = () => {
+  const checkConnection = async () => {
     setIsChecking(true);
     
     try {
-      // التحقق من أن localStorage يعمل
-      const testKey = '__tbos_connection_test__';
-      localStorage.setItem(testKey, 'test');
-      const value = localStorage.getItem(testKey);
-      localStorage.removeItem(testKey);
+      // التحقق من حالة المزامنة
+      const syncStatus = db.getSyncStatus();
+      setSyncMode(syncStatus.mode);
       
-      // التحقق من أن البيانات موجودة
-      const branches = db.getBranches();
-      const isConnectedNow = value === 'test' && branches.length > 0;
-      
-      setIsConnected(isConnectedNow);
+      if (syncStatus.mode === 'cloud') {
+        // اختبار الاتصال بـ Supabase
+        const result = await testSupabaseConnection();
+        setIsConnected(result.success);
+      } else {
+        // التحقق من أن localStorage يعمل
+        const testKey = '__tbos_connection_test__';
+        localStorage.setItem(testKey, 'test');
+        const value = localStorage.getItem(testKey);
+        localStorage.removeItem(testKey);
+        
+        // التحقق من أن البيانات موجودة
+        const branches = db.getBranches();
+        const isConnectedNow = value === 'test' && branches.length > 0;
+        
+        setIsConnected(isConnectedNow);
+      }
     } catch (error) {
       console.error('Connection check failed:', error);
       setIsConnected(false);
@@ -46,11 +58,15 @@ export default function ConnectionStatus({ lang }: ConnectionStatusProps) {
 
   const statusColor = isConnected ? 'bg-green-500' : 'bg-red-500';
   const statusText = isConnected 
-    ? (lang === 'ar' ? 'متصل' : 'Online')
+    ? (syncMode === 'cloud' 
+        ? (lang === 'ar' ? 'سحابي' : 'Cloud')
+        : (lang === 'ar' ? 'محلي' : 'Local'))
     : (lang === 'ar' ? 'غير متصل' : 'Offline');
   
   const statusTooltip = isConnected
-    ? (lang === 'ar' ? 'التطبيق متصل بقاعدة البيانات ويعمل بشكل حي' : 'Application is connected to database and working in real-time')
+    ? (syncMode === 'cloud'
+        ? (lang === 'ar' ? 'التطبيق متصل بـ Supabase ويعمل بشكل حي' : 'Application is connected to Supabase and working in real-time')
+        : (lang === 'ar' ? 'التطبيق يعمل محلياً مع مزامنة بين التبويبات' : 'Application is working locally with tab sync'))
     : (lang === 'ar' ? 'التطبيق غير متصل بقاعدة البيانات' : 'Application is not connected to database');
 
   return (
@@ -69,9 +85,13 @@ export default function ConnectionStatus({ lang }: ConnectionStatusProps) {
 
       {/* أيقونة */}
       {isConnected ? (
-        <Wifi size={12} className="text-green-600" />
+        syncMode === 'cloud' ? (
+          <Cloud size={12} className="text-green-600" />
+        ) : (
+          <Wifi size={12} className="text-green-600" />
+        )
       ) : (
-        <WifiOff size={12} className="text-red-600" />
+        <CloudOff size={12} className="text-red-600" />
       )}
 
       {/* نص الحالة */}

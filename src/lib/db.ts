@@ -1,7 +1,9 @@
-// TBOS Database Layer - localStorage based
-// مع دعم المزامنة اللحظية بين التبويبات والنوافذ
+// TBOS Database Layer
+// يدعم كلاً من localStorage (محلي) و Supabase (سحابي)
+// مع المزامنة اللحظية بين الأجهزة
 
 import { notifyDatabaseChange } from './sync';
+import { supabase, isSupabaseConfigured } from './supabase';
 
 export type UserRole = 'ADMIN' | 'SUPERVISOR' | 'WAREHOUSE' | 'CASHIER' | 'COURIER' | 'VIEWER';
 export type CourierStatus = 'AVAILABLE' | 'ON_TRIP' | 'WAITING' | 'IN_CASHIER' | 'COMPLETED';
@@ -878,5 +880,207 @@ export function getDashboardStats(branchId?: string) {
     inCashier: inCashier.length,
     inQueue: waitingTrips.length,
     avgTripTime: 0,
+  };
+}
+
+// ============================================
+// 🌐 SUPABASE CLOUD SYNC FUNCTIONS
+// ============================================
+
+// التحقق من حالة الاتصال بـ Supabase
+export function getSyncStatus(): { connected: boolean; mode: 'cloud' | 'local' } {
+  const connected = isSupabaseConfigured() && supabase !== null;
+  return {
+    connected,
+    mode: connected ? 'cloud' : 'local'
+  };
+}
+
+// مزامنة البيانات المحلية مع Supabase
+export async function syncToSupabase(): Promise<{ success: boolean; message: string }> {
+  if (!isSupabaseConfigured() || !supabase) {
+    return { success: false, message: 'Supabase not configured' };
+  }
+
+  try {
+    console.log('🔄 Starting sync to Supabase...');
+    
+    // مزامنة الفروع
+    const { error: branchesError } = await supabase
+      .from('branches')
+      .upsert(state.branches.map(b => ({
+        id: b.id,
+        name: b.name,
+        code: b.code,
+        cashier_capacity: b.cashierCapacity,
+        cashier_occupancy: b.cashierOccupancy,
+        dock_capacity: b.dockCapacity,
+        dock_occupancy: b.dockOccupancy,
+        max_queue: b.maxQueue,
+        operational_status: b.operationalStatus
+      })), { onConflict: 'id' });
+
+    if (branchesError) throw branchesError;
+
+    // مزامنة المندوبين
+    const { error: couriersError } = await supabase
+      .from('couriers')
+      .upsert(state.couriers.map(c => ({
+        id: c.id,
+        code: c.code,
+        name: c.name,
+        phone: c.phone,
+        branch_id: c.branchId,
+        status: c.status
+      })), { onConflict: 'id' });
+
+    if (couriersError) throw couriersError;
+
+    // مزامنة الرحلات
+    const { error: tripsError } = await supabase
+      .from('trips')
+      .upsert(state.trips.map(t => ({
+        id: t.id,
+        trip_number: t.tripNumber,
+        courier_id: t.courierId,
+        branch_id: t.branchId,
+        arrival_at: t.arrivalAt,
+        completed_at: t.completedAt,
+        current_stage: t.currentStage,
+        status: t.status
+      })), { onConflict: 'id' });
+
+    if (tripsError) throw tripsError;
+
+    console.log('✅ Sync to Supabase completed successfully');
+    return { success: true, message: 'Data synced to cloud successfully' };
+  } catch (error) {
+    console.error('❌ Sync failed:', error);
+    return { 
+      success: false, 
+      message: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
+}
+
+// استيراد البيانات من Supabase
+export async function syncFromSupabase(): Promise<{ success: boolean; message: string }> {
+  if (!isSupabaseConfigured() || !supabase) {
+    return { success: false, message: 'Supabase not configured' };
+  }
+
+  try {
+    console.log('🔄 Starting sync from Supabase...');
+    
+    // استيراد الفروع
+    const { data: branchesData, error: branchesError } = await supabase
+      .from('branches')
+      .select('*');
+
+    if (branchesError) throw branchesError;
+    if (branchesData && branchesData.length > 0) {
+      state.branches = branchesData.map(b => ({
+        id: b.id,
+        name: b.name,
+        code: b.code,
+        cashierCapacity: b.cashier_capacity,
+        cashierOccupancy: b.cashier_occupancy,
+        dockCapacity: b.dock_capacity,
+        dockOccupancy: b.dock_occupancy,
+        maxQueue: b.max_queue,
+        operationalStatus: b.operational_status
+      }));
+    }
+
+    // استيراد المندوبين
+    const { data: couriersData, error: couriersError } = await supabase
+      .from('couriers')
+      .select('*');
+
+    if (couriersError) throw couriersError;
+    if (couriersData && couriersData.length > 0) {
+      state.couriers = couriersData.map(c => ({
+        id: c.id,
+        code: c.code,
+        name: c.name,
+        phone: c.phone,
+        branchId: c.branch_id,
+        status: c.status
+      }));
+    }
+
+    // استيراد الرحلات
+    const { data: tripsData, error: tripsError } = await supabase
+      .from('trips')
+      .select('*');
+
+    if (tripsError) throw tripsError;
+    if (tripsData && tripsData.length > 0) {
+      state.trips = tripsData.map(t => ({
+        id: t.id,
+        tripNumber: t.trip_number,
+        courierId: t.courier_id,
+        branchId: t.branch_id,
+        arrivalAt: t.arrival_at,
+        completedAt: t.completed_at,
+        currentStage: t.current_stage,
+        status: t.status
+      }));
+    }
+
+    saveState(state);
+    console.log('✅ Sync from Supabase completed successfully');
+    return { success: true, message: 'Data imported from cloud successfully' };
+  } catch (error) {
+    console.error('❌ Sync failed:', error);
+    return { 
+      success: false, 
+      message: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
+}
+
+// الاشتراك في التغييرات من Supabase
+export function subscribeToSupabaseChanges(callback: () => void): () => void {
+  if (!isSupabaseConfigured() || !supabase) {
+    return () => {};
+  }
+
+  const channels = [
+    supabase.channel('branches-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'branches' }, callback)
+      .subscribe(),
+    
+    supabase.channel('couriers-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'couriers' }, callback)
+      .subscribe(),
+    
+    supabase.channel('trips-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trips' }, callback)
+      .subscribe(),
+    
+    supabase.channel('trip_stages-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_stages' }, callback)
+      .subscribe(),
+    
+    supabase.channel('queue-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, callback)
+      .subscribe(),
+    
+    supabase.channel('decisions-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'decisions' }, callback)
+      .subscribe(),
+    
+    supabase.channel('inbound-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inbound' }, callback)
+      .subscribe()
+  ];
+
+  return () => {
+    channels.forEach(channel => {
+      if (supabase) {
+        supabase.removeChannel(channel);
+      }
+    });
   };
 }

@@ -1,16 +1,32 @@
 // نظام المزامنة اللحظية (Real-time Sync System)
-// يدعم المزامنة بين التبويبات والنوافذ على نفس الجهاز
-// جاهز للربط مع Supabase للمزامنة بين الأجهزة المختلفة
+// يدعم المزامنة بين الأجهزة عبر Supabase Realtime
+// مع fallback لـ BroadcastChannel للمزامنة المحلية
 
-type SyncCallback = (data: unknown) => void;
+import { supabase, isSupabaseConfigured } from './supabase';
+
+type SyncCallback = (payload: unknown) => void;
 
 class RealtimeSync {
-  private channel: BroadcastChannel | null = null;
   private listeners: Map<string, Set<SyncCallback>> = new Map();
-  private storageKey = 'tbos_sync_event';
+  private channels: Map<string, any> = new Map();
+  private useSupabase: boolean = false;
 
   constructor() {
-    // تهيئة BroadcastChannel للمزامنة بين التبويبات
+    // التحقق من توفر Supabase
+    this.useSupabase = isSupabaseConfigured() && supabase !== null;
+    
+    if (this.useSupabase) {
+      console.log('🔄 Real-time sync: Using Supabase');
+    } else {
+      console.log('🔄 Real-time sync: Using BroadcastChannel (local only)');
+      this.initBroadcastChannel();
+    }
+  }
+
+  private channel: BroadcastChannel | null = null;
+  private storageKey = 'tbos_sync_event';
+
+  private initBroadcastChannel() {
     if (typeof BroadcastChannel !== 'undefined') {
       try {
         this.channel = new BroadcastChannel('tbos_sync_channel');
@@ -22,7 +38,6 @@ class RealtimeSync {
       }
     }
 
-    // الاستماع لأحداث التخزين للمزامنة بين النوافذ
     window.addEventListener('storage', (event) => {
       if (event.key === this.storageKey && event.newValue) {
         try {
@@ -50,28 +65,36 @@ class RealtimeSync {
     }
   }
 
-  // بث التغييرات إلى جميع العملاء المتصلين
+  // بث التغييرات
   broadcast(type: string, payload: unknown) {
     const message = { type, payload, timestamp: Date.now() };
 
-    // إرسال عبر BroadcastChannel (بين التبويبات)
-    if (this.channel) {
+    if (this.useSupabase && supabase) {
+      // استخدام Supabase للمزامنة بين الأجهزة
+      // Supabase يتولى المزامنة تلقائياً عبر Realtime subscriptions
+      console.log('📡 Broadcasting via Supabase:', type);
+    } else {
+      // استخدام BroadcastChannel للمزامنة المحلية
+      if (this.channel) {
+        try {
+          this.channel.postMessage(message);
+        } catch (error) {
+          console.warn('BroadcastChannel postMessage failed:', error);
+        }
+      }
+
       try {
-        this.channel.postMessage(message);
+        localStorage.setItem(this.storageKey, JSON.stringify(message));
+        setTimeout(() => {
+          localStorage.removeItem(this.storageKey);
+        }, 100);
       } catch (error) {
-        console.warn('BroadcastChannel postMessage failed:', error);
+        console.warn('Sync storage failed:', error);
       }
     }
 
-    // حفظ في localStorage للمزامنة بين النوافذ
-    try {
-      localStorage.setItem(this.storageKey, JSON.stringify(message));
-      setTimeout(() => {
-        localStorage.removeItem(this.storageKey);
-      }, 100);
-    } catch (error) {
-      console.warn('Sync storage failed:', error);
-    }
+    // استدعاء الـ callbacks المحلية
+    this.handleMessage(message);
   }
 
   // الاشتراك في نوع معين من التغييرات
@@ -81,15 +104,64 @@ class RealtimeSync {
     }
     this.listeners.get(type)!.add(callback);
 
+    // إذا كان Supabase متاحاً، اشترك في Realtime channel
+    if (this.useSupabase && supabase !== null && !this.channels.has(type)) {
+      const tableName = this.getTableNameFromType(type);
+      if (tableName) {
+        const channel = supabase
+          .channel(`${tableName}-changes`)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: tableName },
+            (payload: any) => {
+              this.handleMessage({
+                type,
+                payload: payload.new || payload.old || payload
+              });
+            }
+          )
+          .subscribe();
+
+        this.channels.set(type, channel);
+      }
+    }
+
     return () => {
       const callbacks = this.listeners.get(type);
       if (callbacks) {
         callbacks.delete(callback);
         if (callbacks.size === 0) {
           this.listeners.delete(type);
+          
+          // إلغاء الاشتراك من Supabase channel
+          if (this.useSupabase && this.channels.has(type)) {
+            const channel = this.channels.get(type);
+            if (supabase && channel) {
+              supabase.removeChannel(channel);
+            }
+            this.channels.delete(type);
+          }
         }
       }
     };
+  }
+
+  // الحصول على اسم الجدول من نوع الحدث
+  private getTableNameFromType(type: string): string | null {
+    const mapping: Record<string, string> = {
+      'courier_added': 'couriers',
+      'courier_updated': 'couriers',
+      'courier_deleted': 'couriers',
+      'trip_created': 'trips',
+      'trip_updated': 'trips',
+      'stage_changed': 'trip_stages',
+      'queue_updated': 'queue',
+      'decision_made': 'decisions',
+      'inbound_created': 'inbound',
+      'inbound_updated': 'inbound',
+      'settings_updated': 'branches',
+    };
+    return mapping[type] || null;
   }
 
   // الاشتراك في جميع التغييرات
@@ -108,7 +180,16 @@ class RealtimeSync {
     if (this.channel) {
       this.channel.close();
     }
+    
+    if (this.useSupabase && supabase !== null) {
+      const supabaseClient = supabase;
+      this.channels.forEach(channel => {
+        supabaseClient.removeChannel(channel);
+      });
+    }
+    
     this.listeners.clear();
+    this.channels.clear();
   }
 }
 
@@ -133,36 +214,18 @@ export const SYNC_EVENTS = {
 
 // دالة مساعدة لإشعار جميع العملاء بالتغييرات
 export function notifyDatabaseChange(table: string, action: string, data?: unknown) {
-  realtimeSync.broadcast(SYNC_EVENTS.DB_CHANGED, {
+  const eventType = `${table === 'couriers' ? 'courier' : 
+                     table === 'trips' ? 'trip' :
+                     table === 'stages' ? 'stage' :
+                     table === 'queue' ? 'queue' :
+                     table === 'decisions' ? 'decision' :
+                     table === 'inbound' ? 'inbound' :
+                     table === 'branches' ? 'settings' : 'db'}_${action}`;
+  
+  realtimeSync.broadcast(eventType, {
     table,
     action,
     data,
     timestamp: Date.now(),
   });
 }
-
-/*
-===========================================
-📌 ملاحظة للمطورين: الربط مع Supabase
-===========================================
-
-لتمكين المزامنة بين الأجهزة المختلفة (عبر الإنترنت):
-
-1. إنشاء حساب Supabase على https://supabase.com
-2. إنشاء مشروع جديد
-3. تنفيذ ملف supabase-schema.sql
-4. نسخ Project URL و anon key
-5. إنشاء ملف .env.local وإضافة:
-   VITE_SUPABASE_URL=https://your-project.supabase.co
-   VITE_SUPABASE_ANON_KEY=your-anon-key
-
-6. تثبيت @supabase/supabase-js:
-   npm install @supabase/supabase-js
-
-7. تفعيل Real-time في Supabase Dashboard
-
-8. استبدال notifyDatabaseChange بـ:
-   supabase.from('table_name').on('*', callback).subscribe()
-
-===========================================
-*/
