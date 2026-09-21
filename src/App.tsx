@@ -976,12 +976,12 @@ function IncomingPage() {
   const [trips, setTrips] = useState(db.getTrips());
   const [error, setError] = useState('');
 
-  const handleCheckIn = () => {
+  const handleCheckIn = async () => {
     if (!selectedCourier || !selectedBranch) {
       setError('اختر المندوب والفرع');
       return;
     }
-    const result = db.checkIn(selectedCourier, selectedBranch);
+    const result = await db.checkIn(selectedCourier, selectedBranch);
     if (result.success && result.trip) {
       setError('');
       
@@ -993,7 +993,7 @@ function IncomingPage() {
       
       // إذا تم تحديد بدء التحضير المسبق، ابدأ مرحلة التحضير فوراً
       if (startPreparation) {
-        db.startStage(result.trip.id, 'PREPARATION');
+        await db.startStage(result.trip.id, 'PREPARATION');
       }
       
       setSelectedCourier('');
@@ -1107,8 +1107,8 @@ function WorkflowPage() {
     return () => clearInterval(interval);
   }, [refresh]);
 
-  const handleStart = (tripId: string, stage: db.StageName) => {
-    const result = db.startStage(tripId, stage);
+  const handleStart = async (tripId: string, stage: db.StageName) => {
+    const result = await db.startStage(tripId, stage);
     if (result.success) {
       const trip = db.getTrip(tripId);
       if (trip) {
@@ -1120,8 +1120,8 @@ function WorkflowPage() {
     }
   };
 
-  const handleFinish = (tripId: string, stage: db.StageName) => {
-    const result = db.finishStage(tripId, stage);
+  const handleFinish = async (tripId: string, stage: db.StageName) => {
+    const result = await db.finishStage(tripId, stage);
     if (result.success) {
       const trip = db.getTrip(tripId);
       if (trip) {
@@ -1649,14 +1649,14 @@ function PreparationPage() {
     return () => clearInterval(interval);
   }, [refresh]);
 
-  const handleStart = (tripId: string) => {
-    const result = db.startStage(tripId, 'PREPARATION');
+  const handleStart = async (tripId: string) => {
+    const result = await db.startStage(tripId, 'PREPARATION');
     if (result.success) refresh();
     else alert(result.error);
   };
 
-  const handleFinish = (tripId: string) => {
-    const result = db.finishStage(tripId, 'PREPARATION');
+  const handleFinish = async (tripId: string) => {
+    const result = await db.finishStage(tripId, 'PREPARATION');
     if (result.success) refresh();
     else alert(result.error);
   };
@@ -1728,14 +1728,14 @@ function InventoryPage() {
     return () => clearInterval(interval);
   }, [refresh]);
 
-  const handleStart = (tripId: string) => {
-    const result = db.startStage(tripId, 'INVENTORY');
+  const handleStart = async (tripId: string) => {
+    const result = await db.startStage(tripId, 'INVENTORY');
     if (result.success) refresh();
     else alert(result.error);
   };
 
-  const handleFinish = (tripId: string) => {
-    const result = db.finishStage(tripId, 'INVENTORY');
+  const handleFinish = async (tripId: string) => {
+    const result = await db.finishStage(tripId, 'INVENTORY');
     if (result.success) refresh();
     else alert(result.error);
   };
@@ -1807,14 +1807,14 @@ function LoadingPage() {
     return () => clearInterval(interval);
   }, [refresh]);
 
-  const handleStart = (tripId: string) => {
-    const result = db.startStage(tripId, 'LOADING');
+  const handleStart = async (tripId: string) => {
+    const result = await db.startStage(tripId, 'LOADING');
     if (result.success) refresh();
     else alert(result.error);
   };
 
-  const handleFinish = (tripId: string) => {
-    const result = db.finishStage(tripId, 'LOADING');
+  const handleFinish = async (tripId: string) => {
+    const result = await db.finishStage(tripId, 'LOADING');
     if (result.success) {
       db.runDecisionEngine(tripId);
       refresh();

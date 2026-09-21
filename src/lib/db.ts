@@ -1,9 +1,18 @@
 // TBOS Database Layer
-// يدعم كلاً من localStorage (محلي) و Supabase (سحابي)
-// مع المزامنة اللحظية بين الأجهزة
+// يستخدم Supabase كقاعدة بيانات أساسية مع مزامنة لحظية حقيقية
+// localStorage يُستخدم فقط كـ cache محلي
 
 import { notifyDatabaseChange } from './sync';
 import { supabase, isSupabaseConfigured } from './supabase';
+
+// التحقق من توفر Supabase
+const USE_SUPABASE = isSupabaseConfigured() && supabase !== null;
+
+if (USE_SUPABASE) {
+  console.log('🌐 TBOS: Using Supabase as primary database');
+} else {
+  console.warn('⚠️ TBOS: Supabase not available, using localStorage fallback');
+}
 
 export type UserRole = 'ADMIN' | 'SUPERVISOR' | 'WAREHOUSE' | 'CASHIER' | 'COURIER' | 'VIEWER';
 export type CourierStatus = 'AVAILABLE' | 'ON_TRIP' | 'WAITING' | 'IN_CASHIER' | 'COMPLETED';
@@ -165,24 +174,77 @@ function getInitialState(): DBState {
   };
 }
 
-function loadState(): DBState {
+// حالة محلية كـ cache
+let state: DBState = getInitialState();
+
+// تحميل البيانات من Supabase عند بدء التطبيق
+async function loadFromSupabase(): Promise<void> {
+  if (!USE_SUPABASE || !supabase) return;
+  
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (parsed && parsed.users && parsed.branches) {
-        if (!parsed.inbound) parsed.inbound = [];
-        if (!parsed.nextInboundNumber) parsed.nextInboundNumber = 1;
-        return parsed;
-      }
+    console.log('📥 Loading data from Supabase...');
+    
+    // تحميل الفروع
+    const { data: branchesData, error: branchesError } = await supabase
+      .from('branches')
+      .select('*');
+    
+    if (!branchesError && branchesData && branchesData.length > 0) {
+      state.branches = branchesData.map((b: any) => ({
+        id: b.id,
+        name: b.name,
+        code: b.code,
+        cashierCapacity: b.cashier_capacity,
+        cashierOccupancy: b.cashier_occupancy,
+        dockCapacity: b.dock_capacity,
+        dockOccupancy: b.dock_occupancy,
+        maxQueue: b.max_queue,
+        operationalStatus: b.operational_status
+      }));
     }
+    
+    // تحميل المندوبين
+    const { data: couriersData, error: couriersError } = await supabase
+      .from('couriers')
+      .select('*');
+    
+    if (!couriersError && couriersData && couriersData.length > 0) {
+      state.couriers = couriersData.map((c: any) => ({
+        id: c.id,
+        code: c.code,
+        name: c.name,
+        phone: c.phone,
+        branchId: c.branch_id,
+        status: c.status
+      }));
+    }
+    
+    // تحميل الرحلات
+    const { data: tripsData, error: tripsError } = await supabase
+      .from('trips')
+      .select('*');
+    
+    if (!tripsError && tripsData && tripsData.length > 0) {
+      state.trips = tripsData.map((t: any) => ({
+        id: t.id,
+        tripNumber: t.trip_number,
+        courierId: t.courier_id,
+        branchId: t.branch_id,
+        arrivalAt: t.arrival_at,
+        completedAt: t.completed_at,
+        currentStage: t.current_stage,
+        status: t.status
+      }));
+    }
+    
+    console.log('✅ Data loaded from Supabase successfully');
   } catch (error) {
-    console.warn('Failed to load state:', error);
+    console.error('❌ Failed to load from Supabase:', error);
   }
-  const initial = getInitialState();
-  saveState(initial);
-  return initial;
 }
+
+// بدء التحميل من Supabase
+loadFromSupabase();
 
 function saveState(state: DBState): void {
   try {
@@ -191,8 +253,6 @@ function saveState(state: DBState): void {
     console.warn('Failed to save state:', error);
   }
 }
-
-let state: DBState = loadState();
 
 // Auth
 export function login(username: string, password: string): { success: boolean; user?: User; error?: string } {
@@ -225,7 +285,43 @@ export function getBranch(id: string): Branch | undefined {
   return state.branches.find(b => b.id === id);
 }
 
-export function updateBranch(id: string, updates: Partial<Branch>): Branch | null {
+export async function updateBranch(id: string, updates: Partial<Branch>): Promise<Branch | null> {
+  if (USE_SUPABASE && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('branches')
+        .update({
+          cashier_capacity: updates.cashierCapacity,
+          cashier_occupancy: updates.cashierOccupancy,
+          dock_capacity: updates.dockCapacity,
+          dock_occupancy: updates.dockOccupancy,
+          max_queue: updates.maxQueue,
+          operational_status: updates.operationalStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      // تحديث الحالة المحلية
+      const idx = state.branches.findIndex(b => b.id === id);
+      if (idx !== -1 && data) {
+        state.branches[idx] = {
+          ...state.branches[idx],
+          ...updates
+        };
+        saveState(state);
+        notifyDatabaseChange('branches', 'update', state.branches[idx]);
+        return state.branches[idx];
+      }
+    } catch (error) {
+      console.error('Failed to update branch in Supabase:', error);
+    }
+  }
+  
+  // Fallback إلى localStorage
   const idx = state.branches.findIndex(b => b.id === id);
   if (idx === -1) return null;
   state.branches[idx] = { ...state.branches[idx], ...updates };
@@ -244,8 +340,36 @@ export function getCourier(id: string): Courier | undefined {
   return state.couriers.find(c => c.id === id);
 }
 
-export function addCourier(data: Omit<Courier, 'id' | 'status'>): Courier {
+export async function addCourier(data: Omit<Courier, 'id' | 'status'>): Promise<Courier> {
   const courier: Courier = { ...data, id: generateId(), status: 'AVAILABLE' };
+  
+  if (USE_SUPABASE && supabase) {
+    try {
+      const { error } = await supabase
+        .from('couriers')
+        .insert({
+          id: courier.id,
+          code: courier.code,
+          name: courier.name,
+          phone: courier.phone,
+          branch_id: courier.branchId,
+          status: courier.status,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+      
+      if (error) throw error;
+      
+      state.couriers.push(courier);
+      saveState(state);
+      notifyDatabaseChange('couriers', 'add', courier);
+      return courier;
+    } catch (error) {
+      console.error('Failed to add courier to Supabase:', error);
+    }
+  }
+  
+  // Fallback إلى localStorage
   state.couriers.push(courier);
   saveState(state);
   notifyDatabaseChange('couriers', 'add', courier);
@@ -334,7 +458,7 @@ export function getTripStages(tripId: string): TripStage[] {
   return state.tripStages.filter(s => s.tripId === tripId);
 }
 
-export function checkIn(courierId: string, branchId: string): { success: boolean; trip?: Trip; error?: string } {
+export async function checkIn(courierId: string, branchId: string): Promise<{ success: boolean; trip?: Trip; error?: string }> {
   const activeTrip = state.trips.find(t => t.courierId === courierId && (t.status === 'ACTIVE' || t.status === 'WAITING'));
   if (activeTrip) return { success: false, error: 'ACTIVE_TRIP_EXISTS' };
 
@@ -357,8 +481,81 @@ export function checkIn(courierId: string, branchId: string): { success: boolean
     currentStage: 'ENTRY',
     status: 'ACTIVE',
   };
+  
+  if (USE_SUPABASE && supabase) {
+    try {
+      // حفظ الرحلة في Supabase
+      const { error: tripError } = await supabase
+        .from('trips')
+        .insert({
+          id: trip.id,
+          trip_number: trip.tripNumber,
+          courier_id: trip.courierId,
+          branch_id: trip.branchId,
+          arrival_at: trip.arrivalAt,
+          current_stage: trip.currentStage,
+          status: trip.status,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+      
+      if (tripError) throw tripError;
+      
+      // حفظ المراحل في Supabase
+      const stages: StageName[] = ['ENTRY', 'DOCK', 'PREPARATION', 'INVENTORY', 'LOADING', 'DECISION', 'CASHIER', 'COMPLETED'];
+      const stagesData = stages.map(stage => ({
+        id: generateId(),
+        trip_id: trip.id,
+        stage,
+        status: 'PENDING',
+        started_at: null,
+        finished_at: null,
+        duration_seconds: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
+      
+      const { error: stagesError } = await supabase
+        .from('trip_stages')
+        .insert(stagesData);
+      
+      if (stagesError) throw stagesError;
+      
+      // تحديث حالة المندوب في Supabase
+      const { error: courierError } = await supabase
+        .from('couriers')
+        .update({ status: 'ON_TRIP', updated_at: new Date().toISOString() })
+        .eq('id', courierId);
+      
+      if (courierError) throw courierError;
+      
+      // تحديث الحالة المحلية
+      state.trips.push(trip);
+      stages.forEach((stage, idx) => {
+        state.tripStages.push({
+          id: stagesData[idx].id,
+          tripId: trip.id,
+          stage,
+          status: 'PENDING',
+          startedAt: null,
+          finishedAt: null,
+          durationSeconds: 0,
+        });
+      });
+      
+      const cIdx = state.couriers.findIndex(c => c.id === courierId);
+      if (cIdx !== -1) state.couriers[cIdx].status = 'ON_TRIP';
+      
+      saveState(state);
+      notifyDatabaseChange('trips', 'create', trip);
+      return { success: true, trip };
+    } catch (error) {
+      console.error('Failed to checkIn in Supabase:', error);
+    }
+  }
+  
+  // Fallback إلى localStorage
   state.trips.push(trip);
-
   const stages: StageName[] = ['ENTRY', 'DOCK', 'PREPARATION', 'INVENTORY', 'LOADING', 'DECISION', 'CASHIER', 'COMPLETED'];
   stages.forEach(stage => {
     state.tripStages.push({
@@ -371,10 +568,10 @@ export function checkIn(courierId: string, branchId: string): { success: boolean
       durationSeconds: 0,
     });
   });
-
+  
   const cIdx = state.couriers.findIndex(c => c.id === courierId);
   if (cIdx !== -1) state.couriers[cIdx].status = 'ON_TRIP';
-
+  
   saveState(state);
   notifyDatabaseChange('trips', 'create', trip);
   return { success: true, trip };
@@ -383,7 +580,7 @@ export function checkIn(courierId: string, branchId: string): { success: boolean
 // Workflow
 const STAGE_ORDER: StageName[] = ['ENTRY', 'DOCK', 'PREPARATION', 'INVENTORY', 'LOADING', 'DECISION', 'CASHIER', 'COMPLETED'];
 
-export function startStage(tripId: string, stage: StageName): { success: boolean; error?: string } {
+export async function startStage(tripId: string, stage: StageName): Promise<{ success: boolean; error?: string }> {
   const trip = state.trips.find(t => t.id === tripId);
   if (!trip) return { success: false, error: 'TRIP_NOT_FOUND' };
 
@@ -402,12 +599,39 @@ export function startStage(tripId: string, stage: StageName): { success: boolean
     trip.currentStage = stage;
   }
 
+  if (USE_SUPABASE && supabase) {
+    try {
+      const { error } = await supabase
+        .from('trip_stages')
+        .update({
+          status: 'IN_PROGRESS',
+          started_at: tripStage.startedAt,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', tripStage.id);
+      
+      if (error) throw error;
+      
+      const { error: tripError } = await supabase
+        .from('trips')
+        .update({
+          current_stage: trip.currentStage,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', tripId);
+      
+      if (tripError) throw tripError;
+    } catch (error) {
+      console.error('Failed to startStage in Supabase:', error);
+    }
+  }
+
   saveState(state);
   notifyDatabaseChange('stages', 'start', { tripId, stage });
   return { success: true };
 }
 
-export function finishStage(tripId: string, stage: StageName): { success: boolean; error?: string } {
+export async function finishStage(tripId: string, stage: StageName): Promise<{ success: boolean; error?: string }> {
   const trip = state.trips.find(t => t.id === tripId);
   if (!trip) return { success: false, error: 'TRIP_NOT_FOUND' };
 
@@ -458,6 +682,62 @@ export function finishStage(tripId: string, stage: StageName): { success: boolea
       
       // ترقية الرحلة التالية من الطابور تلقائياً
       promoteFromQueue(branch.id);
+    }
+  }
+  
+  if (USE_SUPABASE && supabase) {
+    try {
+      // تحديث المرحلة في Supabase
+      const { error: stageError } = await supabase
+        .from('trip_stages')
+        .update({
+          status: tripStage.status,
+          started_at: tripStage.startedAt,
+          finished_at: tripStage.finishedAt,
+          duration_seconds: tripStage.durationSeconds,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', tripStage.id);
+      
+      if (stageError) throw stageError;
+      
+      // تحديث الرحلة في Supabase
+      const { error: tripError } = await supabase
+        .from('trips')
+        .update({
+          current_stage: trip.currentStage,
+          status: trip.status,
+          completed_at: trip.completedAt,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', tripId);
+      
+      if (tripError) throw tripError;
+      
+      // إذا كانت المرحلة CASHIER، تحديث المندوب والفرع
+      if (stage === 'CASHIER') {
+        const { error: courierError } = await supabase
+          .from('couriers')
+          .update({ status: 'AVAILABLE', updated_at: new Date().toISOString() })
+          .eq('id', trip.courierId);
+        
+        if (courierError) throw courierError;
+        
+        const branch = state.branches.find(b => b.id === trip.branchId);
+        if (branch) {
+          const { error: branchError } = await supabase
+            .from('branches')
+            .update({ 
+              cashier_occupancy: branch.cashierOccupancy,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', branch.id);
+          
+          if (branchError) throw branchError;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to finishStage in Supabase:', error);
     }
   }
   
