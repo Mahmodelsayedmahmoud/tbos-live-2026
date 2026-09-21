@@ -144,10 +144,7 @@ function Layout({ children }: { children: React.ReactNode }) {
                   userRole={user.role} 
                   size="lg"
                   editable={true}
-                  onImageUpload={(imageUrl) => {
-                    // حفظ الصورة في localStorage
-                    localStorage.setItem(`user_avatar_${user.id}`, imageUrl);
-                  }}
+                  userId={user.id}
                 />
                 
                 {/* بيانات المستخدم */}

@@ -1,5 +1,5 @@
 import { User, Camera } from 'lucide-react';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 interface UserAvatarProps {
   userName: string;
@@ -8,12 +8,35 @@ interface UserAvatarProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   onImageUpload?: (imageUrl: string) => void;
   editable?: boolean;
+  userId?: string;
 }
 
-export default function UserAvatar({ userName, userRole, imageUrl, size = 'md', onImageUpload, editable = false }: UserAvatarProps) {
+export default function UserAvatar({ userName, userRole, imageUrl, size = 'md', onImageUpload, editable = false, userId }: UserAvatarProps) {
   const [imageError, setImageError] = useState(false);
-  const [currentImage, setCurrentImage] = useState(imageUrl);
+  const [currentImage, setCurrentImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // مفتاح localStorage للصورة
+  const storageKey = userId ? `userAvatar_${userId}` : 'userAvatar';
+  
+  // استرداد الصورة من localStorage عند التحميل
+  useEffect(() => {
+    try {
+      // أولاً: تحقق من imageUrl المقدم
+      if (imageUrl) {
+        setCurrentImage(imageUrl);
+        return;
+      }
+      
+      // ثانياً: تحقق من localStorage
+      const savedImage = localStorage.getItem(storageKey);
+      if (savedImage) {
+        setCurrentImage(savedImage);
+      }
+    } catch (error) {
+      console.warn('Failed to load avatar from localStorage:', error);
+    }
+  }, [imageUrl, storageKey]);
   
   // استخراج الحرف الأول من الاسم
   const initial = userName.charAt(0).toUpperCase();
@@ -39,7 +62,7 @@ export default function UserAvatar({ userName, userRole, imageUrl, size = 'md', 
   };
   
   // عرض الصورة الحقيقية إذا كانت متوفرة ولم يحدث خطأ
-  const showImage = currentImage && !imageError;
+  const showImage = Boolean(currentImage) && !imageError;
   
   const handleImageClick = () => {
     if (editable && fileInputRef.current) {
@@ -50,12 +73,29 @@ export default function UserAvatar({ userName, userRole, imageUrl, size = 'md', 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // التحقق من حجم الملف (حد أقصى 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        alert('حجم الصورة كبير جداً. الحد الأقصى 2MB');
+        return;
+      }
+      
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result as string;
-        setCurrentImage(result);
-        if (onImageUpload) {
-          onImageUpload(result);
+        
+        // حفظ الصورة في localStorage
+        try {
+          localStorage.setItem(storageKey, result);
+          setCurrentImage(result);
+          setImageError(false);
+          
+          // استدعاء callback إذا كان موجوداً
+          if (onImageUpload) {
+            onImageUpload(result);
+          }
+        } catch (error) {
+          console.error('Failed to save avatar to localStorage:', error);
+          alert('فشل في حفظ الصورة. قد يكون localStorage ممتلئاً');
         }
       };
       reader.readAsDataURL(file);
@@ -68,7 +108,7 @@ export default function UserAvatar({ userName, userRole, imageUrl, size = 'md', 
         onClick={handleImageClick}
         className={`relative ${sizeClasses[size]} rounded-full bg-gradient-to-br ${colorClass} flex items-center justify-center text-white font-bold shadow-lg ring-2 ring-white overflow-hidden ${editable ? 'cursor-pointer hover:ring-4 hover:ring-indigo-300 transition-all' : ''}`}
       >
-        {showImage ? (
+        {showImage && currentImage ? (
           <img 
             src={currentImage} 
             alt={userName}
