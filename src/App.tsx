@@ -123,33 +123,38 @@ function Layout({ children }: { children: React.ReactNode }) {
         <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <aside className={`sidebar fixed lg:static inset-y-0 right-0 z-50 w-64 transform transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
+      <aside className={`sidebar fixed lg:static inset-y-0 right-0 z-50 transform transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
         <div className="flex flex-col h-full">
-          {/* Logo */}
-          <div className="p-4 border-b border-gray-200">
-            <h1 className="text-lg font-bold text-indigo-600 flex items-center gap-2">
-              <Zap size={20} />
+          {/* Logo - Compact */}
+          <div className="p-3 border-b border-gray-700">
+            <h1 className="text-base font-bold text-white flex items-center gap-2">
+              <Zap size={18} />
               TBOS
             </h1>
-            <p className="text-xs text-gray-500 mt-1">Operations System</p>
+            <p className="text-xs text-gray-400 mt-0.5">Operations System</p>
           </div>
 
-          {/* User Profile Section */}
+          {/* User Profile Section - Compact */}
           {user && (
-            <div className="p-5 border-b border-gray-200 bg-gradient-to-b from-gray-50 to-white">
-              <div className="flex flex-col items-center text-center">
-                {/* Avatar كبير */}
+            <div className="p-3 border-b border-gray-700">
+              <div className="flex items-center gap-3">
+                {/* Avatar متوسط مع دعم الرفع */}
                 <UserAvatar 
                   userName={user.name} 
                   userRole={user.role} 
-                  size="xl" 
+                  size="lg"
+                  editable={true}
+                  onImageUpload={(imageUrl) => {
+                    // حفظ الصورة في localStorage
+                    localStorage.setItem(`user_avatar_${user.id}`, imageUrl);
+                  }}
                 />
                 
                 {/* بيانات المستخدم */}
-                <div className="mt-4 space-y-1">
-                  <p className="text-base font-bold text-gray-800">{user.name}</p>
-                  <p className="text-xs text-gray-500">
-                    <span className="inline-block px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full font-medium">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-white truncate">{user.name}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    <span className="inline-block px-2 py-0.5 bg-indigo-600/30 text-indigo-300 rounded-full text-xs font-medium">
                       {user.role}
                     </span>
                   </p>
@@ -158,8 +163,8 @@ function Layout({ children }: { children: React.ReactNode }) {
             </div>
           )}
 
-          {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+          {/* Navigation - Compact */}
+          <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
             {filteredNav.map(item => (
               <Link
                 key={item.path}
@@ -167,28 +172,25 @@ function Layout({ children }: { children: React.ReactNode }) {
                 onClick={() => setSidebarOpen(false)}
                 className={`sidebar-link ${location.pathname === item.path ? 'active' : ''}`}
               >
-                <item.icon size={18} />
+                <item.icon size={16} />
                 <span>{t(item.label, lang)}</span>
               </Link>
             ))}
           </nav>
 
-          {/* Footer - Theme & Settings */}
-          <div className="border-t border-gray-200">
-            {/* Theme Control Section */}
-            <div className="p-4 border-b border-gray-200 bg-gray-50">
+          {/* Footer - Theme & Settings - Compact */}
+          <div className="border-t border-gray-700">
+            {/* Theme Control Section - Compact */}
+            <div className="p-2 border-b border-gray-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="w-7 h-7 rounded-md bg-indigo-600/30 flex items-center justify-center">
+                    <svg className="w-3.5 h-3.5 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                     </svg>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-gray-700">
-                      {lang === 'ar' ? 'المظهر' : 'Appearance'}
-                    </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs font-medium text-gray-300">
                       {lang === 'ar' ? 'الوضع الليلي' : 'Dark Mode'}
                     </p>
                   </div>
@@ -197,20 +199,20 @@ function Layout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="p-4 space-y-2">
+            {/* Actions - Compact */}
+            <div className="p-2 space-y-1.5">
               {/* Language Toggle */}
               <button
                 onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
-                className="btn btn-outline w-full text-xs"
+                className="btn btn-outline w-full text-xs py-1.5"
               >
-                <Globe size={14} />
+                <Globe size={12} />
                 {lang === 'ar' ? 'English' : 'عربي'}
               </button>
 
               {/* Logout */}
-              <button onClick={handleLogout} className="btn btn-danger w-full text-sm">
-                <LogOut size={16} />
+              <button onClick={handleLogout} className="btn btn-danger w-full text-xs py-1.5">
+                <LogOut size={14} />
                 {t('nav.logout', lang)}
               </button>
             </div>
@@ -219,17 +221,17 @@ function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-200 px-4 py-3 shadow-sm">
-          <div className="flex items-center justify-between gap-4">
+        <header className="bg-white border-b border-gray-200 shadow-sm compact-header">
+          <div className="flex items-center justify-between gap-2">
             {/* القسم الأيمن (في RTL) - زر القائمة + الفرع الحالي */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               {/* زر القائمة الجانبية */}
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className="lg:hidden p-1.5 rounded-md hover:bg-gray-100 transition-colors"
                 title={lang === 'ar' ? 'القائمة' : 'Menu'}
               >
-                <Menu size={20} />
+                <Menu size={18} />
               </button>
 
               {/* مؤشر الفرع الحالي */}
@@ -237,13 +239,13 @@ function Layout({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* القسم الأوسط - أزرار الطباعة والمشاركة */}
-            <div className="hidden md:flex items-center gap-2">
+            <div className="hidden md:flex items-center gap-1.5">
               <button
                 onClick={() => window.print()}
-                className="btn btn-outline text-xs"
+                className="btn btn-outline text-xs py-1 px-2"
                 title={lang === 'ar' ? 'طباعة' : 'Print'}
               >
-                <Printer size={16} />
+                <Printer size={14} />
                 <span className="hidden lg:inline">{lang === 'ar' ? 'طباعة' : 'Print'}</span>
               </button>
               <button
@@ -264,16 +266,16 @@ function Layout({ children }: { children: React.ReactNode }) {
                     alert(lang === 'ar' ? 'تم نسخ الرابط!' : 'Link copied!');
                   }
                 }}
-                className="btn btn-outline text-xs"
+                className="btn btn-outline text-xs py-1 px-2"
                 title={lang === 'ar' ? 'مشاركة' : 'Share'}
               >
-                <Share2 size={16} />
+                <Share2 size={14} />
                 <span className="hidden lg:inline">{lang === 'ar' ? 'مشاركة' : 'Share'}</span>
               </button>
             </div>
 
             {/* القسم الأيسر (في RTL) - الساعة الحية + مؤشر الاتصال */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               {/* الساعة الحية */}
               <LiveClock lang={lang} />
               

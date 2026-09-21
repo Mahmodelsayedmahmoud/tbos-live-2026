@@ -38,13 +38,13 @@ export default function LiveClock({ lang }: LiveClockProps) {
   };
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200">
-      <Clock size={16} className="text-purple-600 animate-pulse" />
+    <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200">
+      <Clock size={14} className="text-purple-600 animate-pulse" />
       <div className="text-right">
-        <div className="text-lg font-mono font-bold text-gray-800 tracking-wider">
+        <div className="text-sm font-mono font-bold text-gray-800 tracking-wider leading-none">
           {formatTime(time)}
         </div>
-        <div className="text-xs text-gray-500">
+        <div className="text-xs text-gray-500 leading-tight hidden sm:block">
           {formatDate(time)}
         </div>
       </div>

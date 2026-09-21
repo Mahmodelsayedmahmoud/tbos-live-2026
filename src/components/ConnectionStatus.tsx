@@ -55,23 +55,23 @@ export default function ConnectionStatus({ lang }: ConnectionStatusProps) {
 
   return (
     <div 
-      className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 backdrop-blur-sm border border-gray-200 shadow-sm hover:shadow-md transition-all cursor-pointer"
+      className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/80 backdrop-blur-sm border border-gray-200 shadow-sm hover:shadow-md transition-all cursor-pointer"
       onClick={checkConnection}
       title={statusTooltip}
     >
       {/* نقطة الحالة */}
       <div className="relative">
-        <div className={`w-2.5 h-2.5 rounded-full ${statusColor} ${isChecking ? 'animate-pulse' : ''}`}></div>
+        <div className={`w-2 h-2 rounded-full ${statusColor} ${isChecking ? 'animate-pulse' : ''}`}></div>
         {isConnected && (
-          <div className={`absolute inset-0 w-2.5 h-2.5 rounded-full ${statusColor} animate-ping opacity-75`}></div>
+          <div className={`absolute inset-0 w-2 h-2 rounded-full ${statusColor} animate-ping opacity-75`}></div>
         )}
       </div>
 
       {/* أيقونة */}
       {isConnected ? (
-        <Wifi size={14} className="text-green-600" />
+        <Wifi size={12} className="text-green-600" />
       ) : (
-        <WifiOff size={14} className="text-red-600" />
+        <WifiOff size={12} className="text-red-600" />
       )}
 
       {/* نص الحالة */}
@@ -81,7 +81,7 @@ export default function ConnectionStatus({ lang }: ConnectionStatusProps) {
 
       {/* مؤشر التحديث */}
       {isChecking && (
-        <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
+        <div className="w-2.5 h-2.5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
       )}
     </div>
   );
