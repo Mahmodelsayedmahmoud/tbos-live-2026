@@ -125,6 +125,7 @@ function Layout({ children }: { children: React.ReactNode }) {
 
       <aside className={`sidebar fixed lg:static inset-y-0 right-0 z-50 w-64 transform transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
         <div className="flex flex-col h-full">
+          {/* Logo */}
           <div className="p-4 border-b border-gray-200">
             <h1 className="text-lg font-bold text-indigo-600 flex items-center gap-2">
               <Zap size={20} />
@@ -133,6 +134,22 @@ function Layout({ children }: { children: React.ReactNode }) {
             <p className="text-xs text-gray-500 mt-1">Operations System</p>
           </div>
 
+          {/* User Avatar and Info */}
+          {user && (
+            <div className="p-4 border-b border-gray-200">
+              <div className="flex flex-col items-center text-center">
+                <UserAvatar userName={user.name} userRole={user.role} size="lg" />
+                <div className="mt-3">
+                  <p className="text-sm font-semibold text-gray-800">{user.name}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    <span className="badge badge-purple text-xs">{user.role}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Navigation */}
           <nav className="flex-1 overflow-y-auto p-3 space-y-1">
             {filteredNav.map(item => (
               <Link
@@ -147,7 +164,14 @@ function Layout({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
 
+          {/* Footer */}
           <div className="p-4 border-t border-gray-200 space-y-3">
+            {/* Theme Toggle */}
+            <div className="flex items-center justify-between px-2">
+              <ThemeToggle lang={lang} />
+            </div>
+
+            {/* Language Toggle */}
             <button
               onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
               className="btn btn-outline w-full text-xs"
@@ -155,12 +179,8 @@ function Layout({ children }: { children: React.ReactNode }) {
               <Globe size={14} />
               {lang === 'ar' ? 'English' : 'عربي'}
             </button>
-            {user && (
-              <div className="text-sm">
-                <p className="font-medium text-gray-800">{user.name}</p>
-                <p className="text-xs text-gray-500">{user.role}</p>
-              </div>
-            )}
+
+            {/* Logout */}
             <button onClick={handleLogout} className="btn btn-danger w-full text-sm">
               <LogOut size={16} />
               {t('nav.logout', lang)}
@@ -172,82 +192,64 @@ function Layout({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-white border-b border-gray-200 px-4 py-3 shadow-sm">
           <div className="flex items-center justify-between gap-4">
-            {/* القسم الأيسر - زر القائمة */}
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              <Menu size={20} />
-            </button>
+            {/* القسم الأيمن (في RTL) - زر القائمة + الفرع الحالي */}
+            <div className="flex items-center gap-3">
+              {/* زر القائمة الجانبية */}
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                title={lang === 'ar' ? 'القائمة' : 'Menu'}
+              >
+                <Menu size={20} />
+              </button>
 
-            {/* القسم الأوسط - معلومات النظام */}
-            <div className="flex items-center gap-3 flex-1 justify-center">
               {/* مؤشر الفرع الحالي */}
               <BranchSelector lang={lang} />
-              
-              {/* الساعة الحية */}
-              <LiveClock lang={lang} />
             </div>
 
-            {/* القسم الأيمن - أدوات ومعلومات المستخدم */}
-            <div className="flex items-center gap-3">
-              {/* مؤشر الاتصال */}
-              <ConnectionStatus lang={lang} />
-              
-              {/* تبديل الثيم */}
-              <ThemeToggle lang={lang} />
-              
-              {/* أزرار الطباعة والمشاركة */}
-              <div className="hidden md:flex items-center gap-2">
-                <button
-                  onClick={() => window.print()}
-                  className="btn btn-outline text-xs"
-                  title={lang === 'ar' ? 'طباعة' : 'Print'}
-                >
-                  <Printer size={16} />
-                  <span className="hidden lg:inline">{lang === 'ar' ? 'طباعة' : 'Print'}</span>
-                </button>
-                <button
-                  onClick={async () => {
-                    if (navigator.share) {
-                      try {
-                        await navigator.share({
-                          title: 'TBOS',
-                          text: lang === 'ar' ? 'نظام إدارة العمليات التجارية' : 'Trans Business Operations System',
-                          url: window.location.href,
-                        });
-                      } catch (err) {
-                        navigator.clipboard.writeText(window.location.href);
-                        alert(lang === 'ar' ? 'تم نسخ الرابط!' : 'Link copied!');
-                      }
-                    } else {
+            {/* القسم الأوسط - أزرار الطباعة والمشاركة */}
+            <div className="hidden md:flex items-center gap-2">
+              <button
+                onClick={() => window.print()}
+                className="btn btn-outline text-xs"
+                title={lang === 'ar' ? 'طباعة' : 'Print'}
+              >
+                <Printer size={16} />
+                <span className="hidden lg:inline">{lang === 'ar' ? 'طباعة' : 'Print'}</span>
+              </button>
+              <button
+                onClick={async () => {
+                  if (navigator.share) {
+                    try {
+                      await navigator.share({
+                        title: 'TBOS',
+                        text: lang === 'ar' ? 'نظام إدارة العمليات التجارية' : 'Trans Business Operations System',
+                        url: window.location.href,
+                      });
+                    } catch (err) {
                       navigator.clipboard.writeText(window.location.href);
                       alert(lang === 'ar' ? 'تم نسخ الرابط!' : 'Link copied!');
                     }
-                  }}
-                  className="btn btn-outline text-xs"
-                  title={lang === 'ar' ? 'مشاركة' : 'Share'}
-                >
-                  <Share2 size={16} />
-                  <span className="hidden lg:inline">{lang === 'ar' ? 'مشاركة' : 'Share'}</span>
-                </button>
-              </div>
+                  } else {
+                    navigator.clipboard.writeText(window.location.href);
+                    alert(lang === 'ar' ? 'تم نسخ الرابط!' : 'Link copied!');
+                  }
+                }}
+                className="btn btn-outline text-xs"
+                title={lang === 'ar' ? 'مشاركة' : 'Share'}
+              >
+                <Share2 size={16} />
+                <span className="hidden lg:inline">{lang === 'ar' ? 'مشاركة' : 'Share'}</span>
+              </button>
+            </div>
 
-              {/* فاصل */}
-              <div className="h-8 w-px bg-gray-200"></div>
-
-              {/* معلومات المستخدم مع Avatar */}
-              {user && (
-                <div className="flex items-center gap-2">
-                  <UserAvatar userName={user.name} userRole={user.role} size="md" />
-                  <div className="hidden sm:block text-right">
-                    <div className="text-sm font-semibold text-gray-800">{user.name}</div>
-                    <div className="text-xs text-gray-500">
-                      <span className="badge badge-purple text-xs">{user.role}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
+            {/* القسم الأيسر (في RTL) - الساعة الحية + مؤشر الاتصال */}
+            <div className="flex items-center gap-3">
+              {/* الساعة الحية */}
+              <LiveClock lang={lang} />
+              
+              {/* مؤشر الاتصال */}
+              <ConnectionStatus lang={lang} />
             </div>
           </div>
         </header>
