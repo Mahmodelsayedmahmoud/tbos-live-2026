@@ -134,15 +134,24 @@ function Layout({ children }: { children: React.ReactNode }) {
             <p className="text-xs text-gray-500 mt-1">Operations System</p>
           </div>
 
-          {/* User Avatar and Info */}
+          {/* User Profile Section */}
           {user && (
-            <div className="p-4 border-b border-gray-200">
+            <div className="p-5 border-b border-gray-200 bg-gradient-to-b from-gray-50 to-white">
               <div className="flex flex-col items-center text-center">
-                <UserAvatar userName={user.name} userRole={user.role} size="lg" />
-                <div className="mt-3">
-                  <p className="text-sm font-semibold text-gray-800">{user.name}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    <span className="badge badge-purple text-xs">{user.role}</span>
+                {/* Avatar كبير */}
+                <UserAvatar 
+                  userName={user.name} 
+                  userRole={user.role} 
+                  size="xl" 
+                />
+                
+                {/* بيانات المستخدم */}
+                <div className="mt-4 space-y-1">
+                  <p className="text-base font-bold text-gray-800">{user.name}</p>
+                  <p className="text-xs text-gray-500">
+                    <span className="inline-block px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full font-medium">
+                      {user.role}
+                    </span>
                   </p>
                 </div>
               </div>
@@ -164,27 +173,47 @@ function Layout({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
 
-          {/* Footer */}
-          <div className="p-4 border-t border-gray-200 space-y-3">
-            {/* Theme Toggle */}
-            <div className="flex items-center justify-between px-2">
-              <ThemeToggle lang={lang} />
+          {/* Footer - Theme & Settings */}
+          <div className="border-t border-gray-200">
+            {/* Theme Control Section */}
+            <div className="p-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-700">
+                      {lang === 'ar' ? 'المظهر' : 'Appearance'}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {lang === 'ar' ? 'الوضع الليلي' : 'Dark Mode'}
+                    </p>
+                  </div>
+                </div>
+                <ThemeToggle lang={lang} />
+              </div>
             </div>
 
-            {/* Language Toggle */}
-            <button
-              onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
-              className="btn btn-outline w-full text-xs"
-            >
-              <Globe size={14} />
-              {lang === 'ar' ? 'English' : 'عربي'}
-            </button>
+            {/* Actions */}
+            <div className="p-4 space-y-2">
+              {/* Language Toggle */}
+              <button
+                onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
+                className="btn btn-outline w-full text-xs"
+              >
+                <Globe size={14} />
+                {lang === 'ar' ? 'English' : 'عربي'}
+              </button>
 
-            {/* Logout */}
-            <button onClick={handleLogout} className="btn btn-danger w-full text-sm">
-              <LogOut size={16} />
-              {t('nav.logout', lang)}
-            </button>
+              {/* Logout */}
+              <button onClick={handleLogout} className="btn btn-danger w-full text-sm">
+                <LogOut size={16} />
+                {t('nav.logout', lang)}
+              </button>
+            </div>
           </div>
         </div>
       </aside>
