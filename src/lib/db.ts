@@ -1,4 +1,7 @@
 // TBOS Database Layer - localStorage based
+// مع دعم المزامنة اللحظية بين التبويبات والنوافذ
+
+import { notifyDatabaseChange } from './sync';
 
 export type UserRole = 'ADMIN' | 'SUPERVISOR' | 'WAREHOUSE' | 'CASHIER' | 'COURIER' | 'VIEWER';
 export type CourierStatus = 'AVAILABLE' | 'ON_TRIP' | 'WAITING' | 'IN_CASHIER' | 'COMPLETED';
@@ -225,6 +228,7 @@ export function updateBranch(id: string, updates: Partial<Branch>): Branch | nul
   if (idx === -1) return null;
   state.branches[idx] = { ...state.branches[idx], ...updates };
   saveState(state);
+  notifyDatabaseChange('branches', 'update', state.branches[idx]);
   return state.branches[idx];
 }
 
@@ -242,6 +246,7 @@ export function addCourier(data: Omit<Courier, 'id' | 'status'>): Courier {
   const courier: Courier = { ...data, id: generateId(), status: 'AVAILABLE' };
   state.couriers.push(courier);
   saveState(state);
+  notifyDatabaseChange('couriers', 'add', courier);
   return courier;
 }
 
@@ -369,6 +374,7 @@ export function checkIn(courierId: string, branchId: string): { success: boolean
   if (cIdx !== -1) state.couriers[cIdx].status = 'ON_TRIP';
 
   saveState(state);
+  notifyDatabaseChange('trips', 'create', trip);
   return { success: true, trip };
 }
 
@@ -395,6 +401,7 @@ export function startStage(tripId: string, stage: StageName): { success: boolean
   }
 
   saveState(state);
+  notifyDatabaseChange('stages', 'start', { tripId, stage });
   return { success: true };
 }
 
@@ -453,6 +460,7 @@ export function finishStage(tripId: string, stage: StageName): { success: boolea
   }
   
   saveState(state);
+  notifyDatabaseChange('stages', 'finish', { tripId, stage });
   return { success: true };
 }
 // Queue
@@ -500,6 +508,7 @@ export function addToQueue(tripId: string, branchId: string, priority: number = 
 
   state.queue.push(queueRecord);
   saveState(state);
+  notifyDatabaseChange('queue', 'add', queueRecord);
   
   return queueRecord;
 }
@@ -556,6 +565,7 @@ export function promoteFromQueue(branchId: string): QueueRecord | null {
   }
   
   saveState(state);
+  notifyDatabaseChange('queue', 'promote', nextInQueue);
   return nextInQueue;
 }
 
@@ -648,6 +658,7 @@ export function runDecisionEngine(tripId: string): SystemDecision | null {
   };
   state.decisions.push(sysDecision);
   saveState(state);
+  notifyDatabaseChange('decisions', 'create', sysDecision);
   
   return sysDecision;}
 
@@ -692,6 +703,7 @@ export function createInbound(
   };
   state.inbound.push(inbound);
   saveState(state);
+  notifyDatabaseChange('inbound', 'create', inbound);
   return inbound;
 }
 
@@ -705,6 +717,7 @@ export function startInbound(id: string): Inbound | null {
   state.inbound[idx].status = 'IN_PROGRESS';
   state.inbound[idx].startedAt = new Date().toISOString();
   saveState(state);
+  notifyDatabaseChange('inbound', 'start', state.inbound[idx]);
   return state.inbound[idx];
 }
 
@@ -718,6 +731,7 @@ export function completeInbound(id: string): Inbound | null {
   state.inbound[idx].status = 'COMPLETED';
   state.inbound[idx].completedAt = new Date().toISOString();
   saveState(state);
+  notifyDatabaseChange('inbound', 'complete', state.inbound[idx]);
   return state.inbound[idx];
 }
 
@@ -790,16 +804,20 @@ export function hasPermission(role: UserRole, permission: string): boolean {
 export function deleteInbound(id: string): boolean {
   const idx = state.inbound.findIndex(i => i.id === id);
   if (idx === -1) return false;
+  const inbound = state.inbound[idx];
   state.inbound.splice(idx, 1);
   saveState(state);
+  notifyDatabaseChange('inbound', 'delete', inbound);
   return true;
 }
 
 export function deleteCourier(id: string): boolean {
   const idx = state.couriers.findIndex(c => c.id === id);
   if (idx === -1) return false;
+  const courier = state.couriers[idx];
   state.couriers.splice(idx, 1);
   saveState(state);
+  notifyDatabaseChange('couriers', 'delete', courier);
   return true;
 }
 
@@ -814,10 +832,12 @@ export function updateCourier(id: string, updates: Partial<Courier>): Courier | 
 export function deleteTrip(id: string): boolean {
   const idx = state.trips.findIndex(t => t.id === id);
   if (idx === -1) return false;
+  const trip = state.trips[idx];
   state.trips.splice(idx, 1);
   // حذف المراحل المرتبطة
   state.tripStages = state.tripStages.filter(s => s.tripId !== id);
   saveState(state);
+  notifyDatabaseChange('trips', 'delete', trip);
   return true;
 }
 
