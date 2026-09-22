@@ -1,15 +1,15 @@
 // Supabase Configuration - TBOS Cloud Database
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// بيانات المشروع الحقيقية
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://jkzgpfjaovqxxtrkxalu.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_85-SSPry88Xpsjf0RfOrLg_UoD6rkIk';
+// ============================================
+// 🔐 بيانات الاتصال الحقيقية بـ Supabase
+// ============================================
+export const SUPABASE_URL = 'https://jkzgpfjaovqxxtrkxalu.supabase.co';
+export const SUPABASE_ANON_KEY = 'sb_publishable_85-SSPry88Xpsjf0RfOrLg_UoD6rkIk';
 
 // التحقق من التكوين
 export const isSupabaseConfigured = (): boolean => {
-  return Boolean(supabaseUrl && supabaseAnonKey && 
-         !supabaseUrl.includes('your-project') && 
-         !supabaseAnonKey.includes('your-anon-key'));
+  return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 };
 
 // إنشاء عميل Supabase
@@ -17,7 +17,7 @@ let supabaseClient: SupabaseClient | null = null;
 
 try {
   if (isSupabaseConfigured()) {
-    supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+    supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         autoRefreshToken: true,
         persistSession: true,
@@ -36,7 +36,7 @@ try {
     });
     
     console.log('✅ Supabase client initialized successfully');
-    console.log('🌐 URL:', supabaseUrl);
+    console.log('🌐 URL:', SUPABASE_URL);
   } else {
     console.warn('⚠️ Supabase not configured. Using localStorage fallback.');
   }

@@ -2,7 +2,7 @@
 // يدعم المزامنة بين الأجهزة عبر Supabase Realtime
 // مع fallback لـ BroadcastChannel للمزامنة المحلية
 
-import { supabase, isSupabaseConfigured } from './supabase';
+import { supabase, isSupabaseConfigured, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase';
 
 type SyncCallback = (payload: unknown) => void;
 

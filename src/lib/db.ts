@@ -177,6 +177,63 @@ function getInitialState(): DBState {
 // حالة محلية كـ cache
 let state: DBState = getInitialState();
 
+// إدخال البيانات الأولية (Seed Data)
+async function seedInitialData(): Promise<void> {
+  if (!USE_SUPABASE || !supabase) return;
+  
+  try {
+    console.log('🌱 Seeding initial data to Supabase...');
+    
+    // إدخال الفروع
+    const { error: branchesError } = await supabase
+      .from('branches')
+      .upsert([
+        { id: 'b1', name: 'القاهرة', code: 'CAI', cashier_capacity: 3, cashier_occupancy: 0, dock_capacity: 5, dock_occupancy: 0, max_queue: 20, operational_status: 'ACTIVE' },
+        { id: 'b2', name: 'الإسكندرية', code: 'ALX', cashier_capacity: 2, cashier_occupancy: 0, dock_capacity: 4, dock_occupancy: 0, max_queue: 15, operational_status: 'ACTIVE' },
+        { id: 'b3', name: 'طنطا', code: 'TNT', cashier_capacity: 2, cashier_occupancy: 0, dock_capacity: 3, dock_occupancy: 0, max_queue: 10, operational_status: 'ACTIVE' },
+      ], { onConflict: 'id' });
+    
+    if (branchesError) {
+      console.warn('Could not seed branches:', branchesError.message);
+    }
+    
+    // إدخال المندوبين
+    const { error: couriersError } = await supabase
+      .from('couriers')
+      .upsert([
+        { id: 'c1', code: 'C001', name: 'أحمد محمد', phone: '0101234567', branch_id: 'b1', status: 'AVAILABLE' },
+        { id: 'c2', code: 'C002', name: 'محمود علي', phone: '0109876543', branch_id: 'b1', status: 'AVAILABLE' },
+        { id: 'c3', code: 'C003', name: 'خالد حسن', phone: '0115554433', branch_id: 'b2', status: 'AVAILABLE' },
+        { id: 'c4', code: 'C004', name: 'عمر سعيد', phone: '0127778899', branch_id: 'b2', status: 'AVAILABLE' },
+        { id: 'c5', code: 'C005', name: 'ياسر إبراهيم', phone: '0103332211', branch_id: 'b3', status: 'AVAILABLE' },
+      ], { onConflict: 'id' });
+    
+    if (couriersError) {
+      console.warn('Could not seed couriers:', couriersError.message);
+    }
+    
+    // إدخال المستخدمين
+    const { error: usersError } = await supabase
+      .from('users')
+      .upsert([
+        { id: 'u1', username: 'admin', password_hash: 'admin123', name: 'مدير النظام', role: 'ADMIN' },
+        { id: 'u2', username: 'supervisor', password_hash: 'super123', name: 'المشرف', role: 'SUPERVISOR', branch_id: 'b1' },
+        { id: 'u3', username: 'warehouse', password_hash: 'wh123', name: 'أمين المخزن', role: 'WAREHOUSE', branch_id: 'b1' },
+        { id: 'u4', username: 'cashier', password_hash: 'cash123', name: 'أمين الكاشير', role: 'CASHIER', branch_id: 'b1' },
+        { id: 'u5', username: 'courier', password_hash: 'cr123', name: 'مندوب تجريبي', role: 'COURIER', branch_id: 'b1', courier_id: 'c1' },
+        { id: 'u6', username: 'viewer', password_hash: 'view123', name: 'مشاهد', role: 'VIEWER' },
+      ], { onConflict: 'id' });
+    
+    if (usersError) {
+      console.warn('Could not seed users:', usersError.message);
+    }
+    
+    console.log('✅ Initial data seeded successfully');
+  } catch (error) {
+    console.error('❌ Failed to seed initial data:', error);
+  }
+}
+
 // تحميل البيانات من Supabase عند بدء التطبيق
 async function loadFromSupabase(): Promise<void> {
   if (!USE_SUPABASE || !supabase) return;
@@ -201,6 +258,26 @@ async function loadFromSupabase(): Promise<void> {
         maxQueue: b.max_queue,
         operationalStatus: b.operational_status
       }));
+    } else {
+      // إذا كانت الفروع فارغة، أدخل البيانات الأولية
+      console.log('🌱 Branches table is empty, seeding initial data...');
+      await seedInitialData();
+      
+      // أعد تحميل الفروع
+      const { data: newBranchesData } = await supabase.from('branches').select('*');
+      if (newBranchesData && newBranchesData.length > 0) {
+        state.branches = newBranchesData.map((b: any) => ({
+          id: b.id,
+          name: b.name,
+          code: b.code,
+          cashierCapacity: b.cashier_capacity,
+          cashierOccupancy: b.cashier_occupancy,
+          dockCapacity: b.dock_capacity,
+          dockOccupancy: b.dock_occupancy,
+          maxQueue: b.max_queue,
+          operationalStatus: b.operational_status
+        }));
+      }
     }
     
     // تحميل المندوبين
