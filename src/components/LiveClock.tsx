@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import * as React from 'react';
 import { Clock } from 'lucide-react';
 import { Lang } from '../lib/i18n';
 
@@ -7,9 +7,9 @@ interface LiveClockProps {
 }
 
 export default function LiveClock({ lang }: LiveClockProps) {
-  const [time, setTime] = useState(new Date());
+  const [time, setTime] = React.useState(new Date());
 
-  useEffect(() => {
+  React.useEffect(() => {
     // تحديث الوقت كل ثانية
     const timer = setInterval(() => {
       setTime(new Date());

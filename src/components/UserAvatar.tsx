@@ -1,5 +1,5 @@
 import { User, Camera } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import * as React from 'react';
 
 interface UserAvatarProps {
   userName: string;
@@ -12,15 +12,15 @@ interface UserAvatarProps {
 }
 
 export default function UserAvatar({ userName, userRole, imageUrl, size = 'md', onImageUpload, editable = false, userId }: UserAvatarProps) {
-  const [imageError, setImageError] = useState(false);
-  const [currentImage, setCurrentImage] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imageError, setImageError] = React.useState(false);
+  const [currentImage, setCurrentImage] = React.useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   
   // مفتاح localStorage للصورة
   const storageKey = userId ? `userAvatar_${userId}` : 'userAvatar';
   
   // استرداد الصورة من localStorage عند التحميل
-  useEffect(() => {
+  React.useEffect(() => {
     try {
       // أولاً: تحقق من imageUrl المقدم
       if (imageUrl) {

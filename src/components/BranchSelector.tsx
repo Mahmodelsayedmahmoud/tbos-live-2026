@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import * as React from 'react';
 import { MapPin, ChevronDown, Building2, X } from 'lucide-react';
 import * as db from '../lib/db';
 import { Lang } from '../lib/i18n';
@@ -8,11 +8,11 @@ interface BranchSelectorProps {
 }
 
 export default function BranchSelector({ lang }: BranchSelectorProps) {
-  const [branches, setBranches] = useState(db.getBranches());
-  const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
-  const [isOpen, setIsOpen] = useState(false);
+  const [branches, setBranches] = React.useState(db.getBranches());
+  const [selectedBranch, setSelectedBranch] = React.useState<string | null>(null);
+  const [isOpen, setIsOpen] = React.useState(false);
 
-  useEffect(() => {
+  React.useEffect(() => {
     // تحديث الفروع كل 5 ثوانٍ
     const interval = setInterval(() => {
       setBranches(db.getBranches());
@@ -21,7 +21,7 @@ export default function BranchSelector({ lang }: BranchSelectorProps) {
   }, []);
 
   // تحديد الفرع الأول كافتراضي
-  useEffect(() => {
+  React.useEffect(() => {
     if (branches.length > 0 && !selectedBranch) {
       setSelectedBranch(branches[0].id);
     }

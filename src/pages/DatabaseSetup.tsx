@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react';
+import * as React from 'react';
 import { CheckCircle, XCircle, Loader, Database, Copy, ExternalLink, AlertTriangle } from 'lucide-react';
 import { supabase, isSupabaseConfigured, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase';
 
 export default function DatabaseSetup() {
-  const [status, setStatus] = useState<'checking' | 'ready' | 'needs_setup' | 'error'>('checking');
-  const [message, setMessage] = useState('');
-  const [tables, setTables] = useState<string[]>([]);
-  const [copied, setCopied] = useState(false);
-  const [sqlContent, setSqlContent] = useState('');
+  const [status, setStatus] = React.useState<'checking' | 'ready' | 'needs_setup' | 'error'>('checking');
+  const [message, setMessage] = React.useState('');
+  const [tables, setTables] = React.useState<string[]>([]);
+  const [copied, setCopied] = React.useState(false);
+  const [sqlContent, setSqlContent] = React.useState('');
 
-  useEffect(() => {
+  React.useEffect(() => {
     checkDatabase();
     loadSqlContent();
   }, []);
