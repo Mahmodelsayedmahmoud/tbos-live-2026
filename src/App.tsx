@@ -3,7 +3,7 @@ import { HashRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } f
 import {
   Home, LogIn, LogOut, Menu, X, Users, Truck, FileText, Settings,
   ClipboardList, Package, ArrowDownCircle, Play, Square, Clock, AlertTriangle,
-  CheckCircle, BarChart3, Layers, Globe, Zap, Printer, Share2, TrendingUp, Upload, Download, Activity, RefreshCw, Edit, Trash2
+  CheckCircle, BarChart3, Layers, Globe, Zap, Printer, Share2, TrendingUp, Upload, Download, Activity, RefreshCw, Edit, Trash2, Database
 } from 'lucide-react';
 import { Lang, t, formatDuration, formatTime } from './lib/i18n';
 import * as db from './lib/db';
@@ -20,6 +20,7 @@ import ConnectionStatus from './components/ConnectionStatus';
 import UserAvatar from './components/UserAvatar';
 import BranchSelector from './components/BranchSelector';
 import LiveClock from './components/LiveClock';
+import DatabaseSetup from './pages/DatabaseSetup';
 
 // Context
 interface AppContextType {
@@ -387,6 +388,17 @@ function LoginPage() {
             </button>
             <button onClick={() => handleDemoClick('viewer', 'view123')} className="p-2 bg-white rounded border hover:border-indigo-500 hover:bg-indigo-50 transition-all text-right">
               <span className="font-medium">viewer</span> / view123
+            </button>
+          </div>
+          
+          {/* رابط إعداد قاعدة البيانات */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <button
+              onClick={() => navigate('/setup-db')}
+              className="w-full text-xs text-indigo-600 hover:text-indigo-700 hover:underline flex items-center justify-center gap-1"
+            >
+              <Database size={14} />
+              {lang === 'ar' ? 'إعداد قاعدة البيانات (Supabase)' : 'Database Setup (Supabase)'}
             </button>
           </div>
         </div>
@@ -2552,6 +2564,7 @@ export default function App() {
     <AppContext.Provider value={{ lang, setLang, user, setUser, refresh }}>
       <HashRouter>
         <Routes>
+          <Route path="/setup-db" element={<DatabaseSetup />} />
           <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
           <Route path="/" element={
             <ProtectedRoute requiredPermission="view_dashboard">
