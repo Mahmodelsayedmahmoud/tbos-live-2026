@@ -64,37 +64,26 @@ export default function ConnectionStatus({ lang = 'ar' }: ConnectionStatusProps)
       : 'Application is not connected to Supabase - Click to reconnect';
   };
 
+  const statusClass = isConnected 
+    ? 'connected' 
+    : isReconnectingStatus
+    ? 'reconnecting'
+    : 'disconnected';
+
   return (
     <div 
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-sm border shadow-sm transition-all cursor-pointer ${
-        isConnected 
-          ? 'bg-green-50/80 border-green-200 hover:bg-green-100/80' 
-          : isReconnectingStatus
-          ? 'bg-yellow-50/80 border-yellow-200 hover:bg-yellow-100/80'
-          : 'bg-red-50/80 border-red-200 hover:bg-red-100/80'
-      }`}
+      className={`connection-status ${statusClass}`}
       onClick={isDisconnected ? handleReconnect : undefined}
       title={getStatusTooltip()}
     >
       {/* نقطة الحالة */}
-      <div className="relative">
-        <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor()} ${isReconnectingStatus ? 'animate-pulse' : ''}`}></div>
-        {isConnected && (
-          <div className={`absolute inset-0 w-2.5 h-2.5 rounded-full ${getStatusColor()} animate-ping opacity-75`}></div>
-        )}
-      </div>
+      <div className={`status-dot ${statusClass}`}></div>
 
       {/* أيقونة */}
       {getStatusIcon()}
 
       {/* نص الحالة */}
-      <span className={`text-xs font-semibold ${
-        isConnected ? 'text-green-700' : 
-        isReconnectingStatus ? 'text-yellow-700' : 
-        'text-red-700'
-      }`}>
-        {getStatusText()}
-      </span>
+      <span>{getStatusText()}</span>
 
       {/* زر إعادة الاتصال اليدوي */}
       {isDisconnected && (
@@ -106,13 +95,13 @@ export default function ConnectionStatus({ lang = 'ar' }: ConnectionStatusProps)
           className="ml-1 p-1 rounded-full hover:bg-red-200 transition-colors"
           title={lang === 'ar' ? 'إعادة الاتصال' : 'Reconnect'}
         >
-          <RefreshCw size={12} className="text-red-700" />
+          <RefreshCw size={12} />
         </button>
       )}
 
       {/* مؤشر إعادة الاتصال */}
       {isReconnectingStatus && (
-        <div className="ml-1 text-xs text-yellow-700">
+        <div className="ml-1">
           {lang === 'ar' ? '🔄' : '🔄'}
         </div>
       )}

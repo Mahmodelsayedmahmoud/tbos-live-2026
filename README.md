@@ -2,10 +2,11 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-3.0.0-blue)
+![Version](https://img.shields.io/badge/version-3.1.0-blue)
 ![Build](https://img.shields.io/badge/build-passing-brightgreen)
 ![Supabase](https://img.shields.io/badge/supabase-connected-green)
 ![Real-time](https://img.shields.io/badge/real--time-auto--reconnect-blue)
+![Layout](https://img.shields.io/badge/layout-fixed-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **نظام تشغيلي متكامل لإدارة العمليات التجارية والنقل**
@@ -47,6 +48,13 @@ admin / admin123
 
 ## ✨ المميزات
 
+### 🎨 تخطيط محسّن
+- ✅ لا تداخل بين العناصر
+- ✅ Sidebar ثابت لا يتحرك
+- ✅ Header منظم بشكل صحيح
+- ✅ Content Area له مساحة كافية
+- ✅ دعم كامل للموبايل
+
 ### 🔄 إعادة الاتصال التلقائي (Auto-reconnect)
 - ✅ اكتشاف تلقائي لانقطاع الاتصال
 - ✅ إعادة الاتصال التلقائي مع Exponential Backoff
@@ -68,15 +76,6 @@ admin / admin123
 - ✅ تحديث فوري لجميع الأجهزة
 - ✅ تزامن كامل
 - ✅ إعادة اتصال تلقائي عند الانقطاع
-
-### 🎨 واجهة مستخدم عصرية
-- ✅ تصميم Modern Light Mode
-- ✅ دعم كامل للعربية والإنجليزية (RTL/LTR)
-- ✅ تصميم متجاوب لجميع الأجهزة
-- ✅ أيقونات Lucide أنيقة
-- ✅ حركات وانتقالات سلسة
-- ✅ وضع ليلي (Dark Mode)
-- ✅ مؤشر حالة الاتصال
 
 ### 📦 إدارة الوارد
 - ✅ تتبع الكونتينرات والبضائع
@@ -133,6 +132,31 @@ admin / admin123
 - ✅ فلاتر متقدمة
 - ✅ تصدير السجل
 - ✅ إحصائيات شاملة
+
+---
+
+## 🎨 التحسينات الأخيرة
+
+### إصلاح تخطيط الصفحة (Layout Fix)
+
+#### المشاكل التي تم حلها:
+1. ✅ **تداخل العناصر** - Sidebar كان يستخدم `fixed` positioning
+2. ✅ **عدم وجود CSS مخصص** - ملف `src/index.css` كان فارغاً
+3. ✅ **مشاكل في Header** - لم يكن منظم بشكل صحيح
+4. ✅ **مشاكل في ConnectionStatus** - كان يستخدم Tailwind فقط
+
+#### الحلول المنفذة:
+1. ✅ **إنشاء CSS كامل** مع تنسيقات مناسبة لجميع العناصر
+2. ✅ **تحديث Layout** لاستخدام `.app-container` و `.main-content`
+3. ✅ **تنظيم Header** باستخدام `.app-header` مع أقسام واضحة
+4. ✅ **تحسين ConnectionStatus** باستخدام `.connection-status`
+
+#### النتائج:
+- 🎨 تخطيط واضح ومنظم
+- 📱 دعم كامل للموبايل
+- 🔄 انتقالات سلسة
+- ⚡ أداء محسّن
+- 🛡️ لا تداخل بين العناصر
 
 ---
 
@@ -193,12 +217,28 @@ tbos/
 ├── src/
 │   ├── App.tsx              # المكون الرئيسي
 │   ├── main.tsx             # نقطة الدخول
-│   ├── index.css            # الأنماط
+│   ├── index.css            # الأنماط الكاملة
 │   ├── components/
-│   │   └── ConnectionStatus.tsx # مؤشر حالة الاتصال
+│   │   ├── ConnectionStatus.tsx # مؤشر حالة الاتصال
+│   │   ├── UserAvatar.tsx   # صورة المستخدم
+│   │   ├── BranchSelector.tsx # اختيار الفرع
+│   │   ├── LiveClock.tsx    # الساعة الحية
+│   │   ├── ThemeToggle.tsx  # تبديل الثيم
+│   │   ├── NotificationToast.tsx # التنبيهات
+│   │   ├── DashboardKPIs.tsx # لوحة المؤشرات
+│   │   └── ActivityLog.tsx  # سجل الأنشطة
+│   ├── pages/
+│   │   └── DatabaseSetup.tsx # صفحة إعداد قاعدة البيانات
 │   └── lib/
+│       ├── db.ts            # طبقة البيانات
 │       ├── supabase.ts      # تكوين Supabase مع Auto-reconnect
-│       └── sync.ts          # نظام المزامنة مع Auto-reconnect
+│       ├── sync.ts          # نظام المزامنة
+│       ├── i18n.ts          # الترجمة
+│       ├── theme.ts         # إدارة الثيمات
+│       ├── notifications.ts # نظام التنبيهات
+│       ├── permissions.ts   # نظام الصلاحيات
+│       ├── auditLog.ts      # سجل الأنشطة
+│       └── exportUtils.ts   # أدوات التصدير
 ├── setup-database.sql       # سكريبت إنشاء قاعدة البيانات
 ├── netlify.toml             # إعدادات Netlify
 ├── vercel.json              # إعدادات Vercel
@@ -264,13 +304,13 @@ tbos/
 ## 📊 إحصائيات البناء
 
 ```
-✓ 27 modules transformed
-✓ built in 1.75s
+✓ 1417 modules transformed
+✓ built in 5.76s
 
 Output:
 - dist/index.html          3.19 kB  (gzip:  1.37 kB)
-- dist/assets/index.css   12.19 kB  (gzip:  3.18 kB)
-- dist/assets/index.js   143.71 kB  (gzip: 46.14 kB)
+- dist/assets/index.css   45.11 kB  (gzip:  8.50 kB)
+- dist/assets/index.js   457.77 kB  (gzip: 130.31 kB)
 ```
 
 **✅ لا توجد أخطاء!**
@@ -278,6 +318,14 @@ Output:
 ---
 
 ## 🐛 حل المشاكل
+
+### المشكلة: تداخل العناصر
+
+**الحل:**
+1. تأكد من أن `src/index.css` يحتوي على CSS كامل
+2. تحقق من أن Layout يستخدم `.app-container`
+3. تأكد من أن Sidebar يستخدم `.sidebar`
+4. تحقق من أن Header يستخدم `.app-header`
 
 ### المشكلة: انقطاع الاتصال
 
@@ -316,6 +364,6 @@ Output:
 
 **صنع بـ ❤️ بواسطة فريق TBOS**
 
-**المشروع جاهز للإنتاج مع إعادة الاتصال التلقائي!** 🚀🔄
+**المشروع جاهز للإنتاج مع تخطيط محسّن وإعادة الاتصال التلقائي!** 🚀🔄🎨
 
 </div>

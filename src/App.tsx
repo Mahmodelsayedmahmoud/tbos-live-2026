@@ -115,11 +115,19 @@ function Layout({ children }: { children: React.ReactNode }) {
   });
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="app-container">
       {/* نظام التنبيهات البصرية */}
       <NotificationToast />
       
-      <aside className={`sidebar fixed lg:static inset-y-0 right-0 z-50 transform transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
+      {/* Sidebar Overlay للموبايل */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="flex flex-col h-full">
           {/* Logo - Compact */}
           <div className="p-3 border-b border-gray-700">
@@ -211,66 +219,61 @@ function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-200 shadow-sm compact-header">
-          <div className="flex items-center justify-between gap-2">
-            {/* القسم الأيمن (في RTL) - زر القائمة + الفرع الحالي */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-1.5 rounded-md hover:bg-gray-100 transition-colors"
-                title={lang === 'ar' ? 'القائمة' : 'Menu'}
-              >
-                <Menu size={18} />
-              </button>
+      <div className="main-content">
+        <header className="app-header">
+          <div className="header-section header-right">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+              title={lang === 'ar' ? 'القائمة' : 'Menu'}
+            >
+              <Menu size={18} />
+            </button>
 
-              <BranchSelector lang={lang} />
-            </div>
+            <BranchSelector lang={lang} />
+          </div>
 
-            {/* القسم الأوسط - أزرار الطباعة والمشاركة */}
-            <div className="hidden md:flex items-center gap-1.5">
-              <button
-                onClick={() => window.print()}
-                className="btn btn-outline text-xs py-1 px-2"
-                title={lang === 'ar' ? 'طباعة' : 'Print'}
-              >
-                <Printer size={14} />
-                <span className="hidden lg:inline">{lang === 'ar' ? 'طباعة' : 'Print'}</span>
-              </button>
-              <button
-                onClick={async () => {
-                  if (navigator.share) {
-                    try {
-                      await navigator.share({
-                        title: 'TBOS',
-                        text: lang === 'ar' ? 'نظام إدارة العمليات التجارية' : 'Trans Business Operations System',
-                        url: window.location.href,
-                      });
-                    } catch (err) {
-                      navigator.clipboard.writeText(window.location.href);
-                      alert(lang === 'ar' ? 'تم نسخ الرابط!' : 'Link copied!');
-                    }
-                  } else {
+          <div className="header-section header-center hide-mobile">
+            <button
+              onClick={() => window.print()}
+              className="btn btn-outline text-xs py-1 px-2"
+              title={lang === 'ar' ? 'طباعة' : 'Print'}
+            >
+              <Printer size={14} />
+              <span className="hidden lg:inline">{lang === 'ar' ? 'طباعة' : 'Print'}</span>
+            </button>
+            <button
+              onClick={async () => {
+                if (navigator.share) {
+                  try {
+                    await navigator.share({
+                      title: 'TBOS',
+                      text: lang === 'ar' ? 'نظام إدارة العمليات التجارية' : 'Trans Business Operations System',
+                      url: window.location.href,
+                    });
+                  } catch (err) {
                     navigator.clipboard.writeText(window.location.href);
                     alert(lang === 'ar' ? 'تم نسخ الرابط!' : 'Link copied!');
                   }
-                }}
-                className="btn btn-outline text-xs py-1 px-2"
-                title={lang === 'ar' ? 'مشاركة' : 'Share'}
-              >
-                <Share2 size={14} />
-                <span className="hidden lg:inline">{lang === 'ar' ? 'مشاركة' : 'Share'}</span>
-              </button>
-            </div>
+                } else {
+                  navigator.clipboard.writeText(window.location.href);
+                  alert(lang === 'ar' ? 'تم نسخ الرابط!' : 'Link copied!');
+                }
+              }}
+              className="btn btn-outline text-xs py-1 px-2"
+              title={lang === 'ar' ? 'مشاركة' : 'Share'}
+            >
+              <Share2 size={14} />
+              <span className="hidden lg:inline">{lang === 'ar' ? 'مشاركة' : 'Share'}</span>
+            </button>
+          </div>
 
-            {/* القسم الأيسر (في RTL) - الساعة الحية + مؤشر الاتصال */}
-            <div className="flex items-center gap-2">
-              <LiveClock lang={lang} />
-              <ConnectionStatus lang={lang} />
-            </div>
+          <div className="header-section header-left">
+            <LiveClock lang={lang} />
+            <ConnectionStatus lang={lang} />
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <main className="content-area">
           {children}
         </main>
       </div>
