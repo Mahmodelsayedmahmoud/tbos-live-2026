@@ -273,9 +273,9 @@ DECISION ENGINE (محرك القرارات)
 ```
 tbos/
 ├── src/
-│   ├── App.tsx              # المكون الرئيسي
+│   ├── App.tsx              # المكون الرئيسي (2479 سطر)
 │   ├── main.tsx             # نقطة الدخول
-│   ├── index.css            # الأنماط
+│   ├── index.css            # الأنماط (561 سطر)
 │   ├── components/
 │   │   ├── UserAvatar.tsx       # صورة المستخدم
 │   │   ├── BranchSelector.tsx   # اختيار الفرع
@@ -332,12 +332,12 @@ tbos/
 
 ```
 ✓ 1376 modules transformed
-✓ built in 7.91s
+✓ built in 7.80s
 
 Output:
 - dist/index.html          3.22 kB  (gzip:  1.39 kB)
-- dist/assets/index.css   50.01 kB  (gzip:  9.07 kB)
-- dist/assets/index.js   724.96 kB  (gzip: 226.76 kB)
+- dist/assets/index.css   47.91 kB  (gzip:  8.76 kB)
+- dist/assets/index.js   724.77 kB  (gzip: 226.66 kB)
 ```
 
 **✅ لا توجد أخطاء!**
