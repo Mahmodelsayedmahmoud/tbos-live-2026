@@ -460,24 +460,305 @@ function DashboardPage() {
   );
 }
 
+// Inbound Page
+function InboundPage() {
+  const { lang, refresh } = useApp();
+  const [inbounds, setInbounds] = React.useState<any[]>([]);
+  
+  React.useEffect(() => {
+    setInbounds(db.getInbounds());
+    const interval = setInterval(() => {
+      setInbounds(db.getInbounds());
+      refresh();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{lang === 'ar' ? 'الوارد' : 'Inbound'}</h2>
+      <div className="card p-6">
+        <p className="text-gray-500">{lang === 'ar' ? 'إدارة الكونتينرات والبضائع الواردة' : 'Manage containers and incoming goods'}</p>
+        <p className="text-sm text-gray-400 mt-2">{lang === 'ar' ? `عدد العمليات: ${inbounds.length}` : `Total operations: ${inbounds.length}`}</p>
+      </div>
+    </div>
+  );
+}
+
+// Incoming Page
+function IncomingPage() {
+  const { lang } = useApp();
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('incoming.title', lang)}</h2>
+      <div className="card p-6">
+        <p className="text-gray-500">{lang === 'ar' ? 'تسجيل وصول المندوبين' : 'Courier check-in'}</p>
+      </div>
+    </div>
+  );
+}
+
+// Couriers Page
+function CouriersPage() {
+  const { lang } = useApp();
+  const [couriers] = React.useState(db.getCouriers());
+  const [branches] = React.useState(db.getBranches());
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('couriers.title', lang)}</h2>
+      <div className="card p-6">
+        <table>
+          <thead>
+            <tr>
+              <th>{t('couriers.code', lang)}</th>
+              <th>{t('couriers.name', lang)}</th>
+              <th>{t('couriers.phone', lang)}</th>
+              <th>{t('couriers.branch', lang)}</th>
+              <th>{t('couriers.status', lang)}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {couriers.map(courier => {
+              const branch = branches.find(b => b.id === courier.branchId);
+              return (
+                <tr key={courier.id}>
+                  <td className="font-mono">{courier.code}</td>
+                  <td>{courier.name}</td>
+                  <td>{courier.phone}</td>
+                  <td>{branch?.name}</td>
+                  <td><span className="badge badge-green">{courier.status}</span></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// Preparation Page
+function PreparationPage() {
+  const { lang } = useApp();
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('nav.preparation', lang)}</h2>
+      <div className="card p-6">
+        <p className="text-gray-500">{lang === 'ar' ? 'إدارة مرحلة التحضير' : 'Preparation stage management'}</p>
+      </div>
+    </div>
+  );
+}
+
+// Inventory Page
+function InventoryPage() {
+  const { lang } = useApp();
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('nav.inventory', lang)}</h2>
+      <div className="card p-6">
+        <p className="text-gray-500">{lang === 'ar' ? 'إدارة مرحلة الجرد' : 'Inventory stage management'}</p>
+      </div>
+    </div>
+  );
+}
+
+// Loading Page
+function LoadingPage() {
+  const { lang } = useApp();
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('nav.loading', lang)}</h2>
+      <div className="card p-6">
+        <p className="text-gray-500">{lang === 'ar' ? 'إدارة مرحلة التحميل' : 'Loading stage management'}</p>
+      </div>
+    </div>
+  );
+}
+
+// Workflow Page
+function WorkflowPage() {
+  const { lang } = useApp();
+  const [trips] = React.useState(db.getTrips());
+  
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('workflow.title', lang)}</h2>
+      <div className="card p-6">
+        <p className="text-gray-500">{lang === 'ar' ? `عدد الرحلات النشطة: ${trips.filter(t => t.status === 'ACTIVE').length}` : `Active trips: ${trips.filter(t => t.status === 'ACTIVE').length}`}</p>
+      </div>
+    </div>
+  );
+}
+
+// Trips Page
+function TripsPage() {
+  const { lang } = useApp();
+  const [trips] = React.useState(db.getTrips());
+  
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('nav.trips', lang)}</h2>
+      <div className="card p-6">
+        <p className="text-gray-500">{lang === 'ar' ? `إجمالي الرحلات: ${trips.length}` : `Total trips: ${trips.length}`}</p>
+      </div>
+    </div>
+  );
+}
+
+// Cashier Page
+function CashierPage() {
+  const { lang } = useApp();
+  const [branches] = React.useState(db.getBranches());
+  
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('cashier.title', lang)}</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {branches.map(branch => (
+          <div key={branch.id} className="card p-4">
+            <h3 className="font-semibold text-gray-800 mb-3">{branch.name}</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div className={`p-3 rounded-lg ${branch.cashierOccupancy < branch.cashierCapacity ? 'bg-green-50' : 'bg-red-50'}`}>
+                <p className="text-xs text-gray-600">{t('cashier.title', lang)}</p>
+                <p className="text-xl font-bold">{branch.cashierOccupancy} / {branch.cashierCapacity}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Queue Page
+function QueuePage() {
+  const { lang } = useApp();
+  const [queue] = React.useState(db.getQueue());
+  
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('queue.title', lang)}</h2>
+      <div className="card p-6">
+        <p className="text-gray-500">{lang === 'ar' ? `عدد المنتظرين: ${queue.filter(q => q.status === 'WAITING').length}` : `Waiting: ${queue.filter(q => q.status === 'WAITING').length}`}</p>
+      </div>
+    </div>
+  );
+}
+
+// Reports Page
+function ReportsPage() {
+  const { lang } = useApp();
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('reports.title', lang)}</h2>
+      <div className="card p-6">
+        <p className="text-gray-500">{lang === 'ar' ? 'التقارير والإحصائيات' : 'Reports and statistics'}</p>
+      </div>
+    </div>
+  );
+}
+
+// Performance Report Page
+function PerformanceReportPage() {
+  const { lang } = useApp();
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('nav.performance', lang)}</h2>
+      <div className="card p-6">
+        <p className="text-gray-500">{lang === 'ar' ? 'تقرير أداء المندوبين' : 'Courier performance report'}</p>
+      </div>
+    </div>
+  );
+}
+
+// Dashboard KPIs Page
+function DashboardKPIsPage() {
+  const { lang } = useApp();
+  return <DashboardKPIs lang={lang} />;
+}
+
+// Activity Log Page
+function ActivityLogPage() {
+  const { lang } = useApp();
+  return <ActivityLogViewer lang={lang} />;
+}
+
+// Users Page
+function UsersPage() {
+  const { lang } = useApp();
+  const [users] = React.useState(db.getUsers());
+  
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('users.title', lang)}</h2>
+      <div className="card p-6">
+        <table>
+          <thead>
+            <tr>
+              <th>{lang === 'ar' ? 'اسم المستخدم' : 'Username'}</th>
+              <th>{lang === 'ar' ? 'الاسم' : 'Name'}</th>
+              <th>{t('users.role', lang)}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map(user => (
+              <tr key={user.id}>
+                <td className="font-mono">{user.username}</td>
+                <td>{user.name}</td>
+                <td><span className="badge badge-purple">{user.role}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// Settings Page
+function SettingsPage() {
+  const { lang } = useApp();
+  const [branches, setBranches] = React.useState(db.getBranches());
+  
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('settings.title', lang)}</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {branches.map(branch => (
+          <div key={branch.id} className="card p-4">
+            <h3 className="font-semibold text-gray-800 mb-3">{branch.name}</h3>
+            <div className="space-y-2 text-sm">
+              <p><span className="text-gray-600">{t('settings.cashier_capacity', lang)}:</span> {branch.cashierCapacity}</p>
+              <p><span className="text-gray-600">{t('settings.dock_capacity', lang)}:</span> {branch.dockCapacity}</p>
+              <p><span className="text-gray-600">{t('settings.max_queue', lang)}:</span> {branch.maxQueue}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Main App
 export default function App() {
   const [lang, setLang] = React.useState<Lang>('ar');
   const [user, setUser] = React.useState<db.User | null>(db.getCurrentUser());
   const [, setRefreshTick] = React.useState(0);
-
+  
   const refresh = () => setRefreshTick(t => t + 1);
-
+  
   React.useEffect(() => {
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
     document.documentElement.lang = lang;
   }, [lang]);
-
+  
   React.useEffect(() => {
     const currentUser = db.getCurrentUser();
     if (currentUser) setUser(currentUser);
   }, []);
-
+  
   return (
     <AppContext.Provider value={{ lang, setLang, user, setUser, refresh }}>
       <HashRouter>
@@ -491,6 +772,22 @@ export default function App() {
               </Layout>
             </ProtectedRoute>
           } />
+          <Route path="/inbound" element={<ProtectedRoute requiredPermission="view_inbound"><Layout><InboundPage /></Layout></ProtectedRoute>} />
+          <Route path="/incoming" element={<ProtectedRoute requiredPermission="view_inbound"><Layout><IncomingPage /></Layout></ProtectedRoute>} />
+          <Route path="/couriers" element={<ProtectedRoute requiredPermission="view_couriers"><Layout><CouriersPage /></Layout></ProtectedRoute>} />
+          <Route path="/preparation" element={<ProtectedRoute requiredPermission="view_workflow"><Layout><PreparationPage /></Layout></ProtectedRoute>} />
+          <Route path="/inventory" element={<ProtectedRoute requiredPermission="view_workflow"><Layout><InventoryPage /></Layout></ProtectedRoute>} />
+          <Route path="/loading" element={<ProtectedRoute requiredPermission="view_workflow"><Layout><LoadingPage /></Layout></ProtectedRoute>} />
+          <Route path="/workflow" element={<ProtectedRoute requiredPermission="view_workflow"><Layout><WorkflowPage /></Layout></ProtectedRoute>} />
+          <Route path="/trips" element={<ProtectedRoute requiredPermission="view_trips"><Layout><TripsPage /></Layout></ProtectedRoute>} />
+          <Route path="/cashier" element={<ProtectedRoute requiredPermission="view_cashier"><Layout><CashierPage /></Layout></ProtectedRoute>} />
+          <Route path="/queue" element={<ProtectedRoute requiredPermission="view_queue"><Layout><QueuePage /></Layout></ProtectedRoute>} />
+          <Route path="/reports" element={<ProtectedRoute requiredPermission="view_reports"><Layout><ReportsPage /></Layout></ProtectedRoute>} />
+          <Route path="/performance" element={<ProtectedRoute requiredPermission="view_performance"><Layout><PerformanceReportPage /></Layout></ProtectedRoute>} />
+          <Route path="/dashboard-kpis" element={<ProtectedRoute requiredPermission="view_dashboard"><Layout><DashboardKPIsPage /></Layout></ProtectedRoute>} />
+          <Route path="/activity-log" element={<ProtectedRoute requiredPermission="view_dashboard"><Layout><ActivityLogPage /></Layout></ProtectedRoute>} />
+          <Route path="/users" element={<ProtectedRoute requiredPermission="view_users"><Layout><UsersPage /></Layout></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute requiredPermission="view_settings"><Layout><SettingsPage /></Layout></ProtectedRoute>} />
         </Routes>
       </HashRouter>
     </AppContext.Provider>
