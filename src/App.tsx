@@ -3,7 +3,7 @@ import { HashRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } f
 import {
   Home, LogIn, LogOut, Menu, X, Users, Truck, FileText, Settings,
   ClipboardList, Package, ArrowDownCircle, Play, Square, Clock, AlertTriangle,
-  CheckCircle, BarChart3, Layers, Globe, Zap, Printer, Share2, TrendingUp, Upload, Download, Activity, RefreshCw, Edit, Trash2, Database
+  CheckCircle, BarChart3, Layers, Globe, Zap, Printer, Share2, TrendingUp, Upload, Download, Activity, RefreshCw, Edit, Trash2
 } from 'lucide-react';
 import { Lang, t, formatDuration, formatTime } from './lib/i18n';
 import * as db from './lib/db';
@@ -13,7 +13,6 @@ import * as permissions from './lib/permissions';
 import { notifyCourierCheckIn, notifyStageStarted, notifyStageCompleted, notifyDecision } from './lib/notifications';
 import DashboardKPIs from './components/DashboardKPIs';
 import ActivityLogViewer from './components/ActivityLog';
-import { logActivity } from './lib/auditLog';
 import { exportTripsReport, exportCouriersReport, exportInboundReport, exportPerformanceReport } from './lib/exportUtils';
 import ThemeToggle from './components/ThemeToggle';
 import ConnectionStatus from './components/ConnectionStatus';
@@ -365,16 +364,6 @@ function LoginPage() {
             </button>
             <button onClick={() => handleDemoClick('viewer', 'view123')} className="p-2 bg-white rounded border hover:border-indigo-500 hover:bg-indigo-50 transition-all text-right">
               <span className="font-medium">viewer</span> / view123
-            </button>
-          </div>
-          
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <button
-              onClick={() => navigate('/setup-db')}
-              className="w-full text-xs text-indigo-600 hover:text-indigo-700 hover:underline flex items-center justify-center gap-1"
-            >
-              <Database size={14} />
-              {lang === 'ar' ? 'إعداد قاعدة البيانات (Supabase)' : 'Database Setup (Supabase)'}
             </button>
           </div>
         </div>
