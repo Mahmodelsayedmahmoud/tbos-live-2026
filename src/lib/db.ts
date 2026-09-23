@@ -1,17 +1,17 @@
 // TBOS Database Layer
-// يستخدم Supabase كقاعدة بيانات أساسية مع مزامنة لحظية حقيقية
-// localStorage يُستخدم فقط كـ cache محلي
+// يستخدم localStorage كقاعدة بيانات أساسية
+// Supabase اختياري للمزامنة بين الأجهزة
 
 import { notifyDatabaseChange } from './sync';
 import { supabase, isSupabaseConfigured } from './supabase';
 
-// التحقق من توفر Supabase
+// التحقق من توفر Supabase (اختياري)
 const USE_SUPABASE = isSupabaseConfigured() && supabase !== null;
 
 if (USE_SUPABASE) {
-  console.log('🌐 TBOS: Using Supabase as primary database');
+  console.log('🌐 TBOS: Supabase connected');
 } else {
-  console.warn('⚠️ TBOS: Supabase not available, using localStorage fallback');
+  console.log('💾 TBOS: Using localStorage');
 }
 
 export type UserRole = 'ADMIN' | 'SUPERVISOR' | 'WAREHOUSE' | 'CASHIER' | 'COURIER' | 'VIEWER';
@@ -320,8 +320,12 @@ async function loadFromSupabase(): Promise<void> {
   }
 }
 
-// بدء التحميل من Supabase
-loadFromSupabase();
+// بدء التحميل من Supabase (اختياري - فقط إذا كان متاحاً)
+if (USE_SUPABASE) {
+  loadFromSupabase().catch(error => {
+    console.warn('⚠️ Could not load from Supabase, using localStorage:', error);
+  });
+}
 
 function saveState(state: DBState): void {
   try {
