@@ -46,7 +46,6 @@ function useApp() {
 // Protected Route
 function ProtectedRoute({ children, requiredPermission }: { children: React.ReactNode; requiredPermission?: permissions.Permission }) {
   const { user, lang } = useApp();
-  const location = useLocation();
   
   if (!user) return <Navigate to="/login" replace />;
   
@@ -116,10 +115,8 @@ function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app-container">
-      {/* نظام التنبيهات البصرية */}
       <NotificationToast />
       
-      {/* Sidebar Overlay للموبايل */}
       {sidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
@@ -129,7 +126,6 @@ function Layout({ children }: { children: React.ReactNode }) {
       
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="flex flex-col h-full">
-          {/* Logo - Compact */}
           <div className="p-3 border-b border-gray-700">
             <h1 className="text-base font-bold text-white flex items-center gap-2">
               <Zap size={18} />
@@ -138,7 +134,6 @@ function Layout({ children }: { children: React.ReactNode }) {
             <p className="text-xs text-gray-400 mt-0.5">Operations System</p>
           </div>
 
-          {/* User Profile Section - Compact */}
           {user && (
             <div className="p-3 border-b border-gray-700">
               <div className="flex items-center gap-3">
@@ -147,11 +142,7 @@ function Layout({ children }: { children: React.ReactNode }) {
                   userRole={user.role} 
                   size="lg"
                   editable={true}
-                  onImageUpload={(imageUrl) => {
-                    localStorage.setItem(`user_avatar_${user.id}`, imageUrl);
-                  }}
                 />
-                
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-white truncate">{user.name}</p>
                   <p className="text-xs text-gray-400 mt-0.5">
@@ -164,7 +155,6 @@ function Layout({ children }: { children: React.ReactNode }) {
             </div>
           )}
 
-          {/* Navigation - Compact */}
           <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
             {filteredNav.map(item => (
               <Link
@@ -179,9 +169,7 @@ function Layout({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
 
-          {/* Footer - Theme & Settings - Compact */}
           <div className="border-t border-gray-700">
-            {/* Theme Control Section - Compact */}
             <div className="p-2 border-b border-gray-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -200,7 +188,6 @@ function Layout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
 
-            {/* Actions - Compact */}
             <div className="p-2 space-y-1.5">
               <button
                 onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
@@ -464,7 +451,26 @@ function DashboardPage() {
 function InboundPage() {
   const { lang, refresh } = useApp();
   const [inbounds, setInbounds] = React.useState<any[]>([]);
-  
+  const [selectedInbound, setSelectedInbound] = React.useState<any>(null);
+  const [showForm, setShowForm] = React.useState(false);
+  const [formData, setFormData] = React.useState({
+    driverName: '',
+    driverCode: '',
+    containerNumber: '',
+    containerType: '20ft',
+    branchId: '',
+  });
+  const [itemForm, setItemForm] = React.useState({
+    itemName: '',
+    itemCode: '',
+    quantity: '',
+    unit: 'قطعة',
+    notes: '',
+  });
+  const [elapsedTime, setElapsedTime] = React.useState(0);
+  const [isTimerRunning, setIsTimerRunning] = React.useState(false);
+  const branches = db.getBranches() || [];
+
   React.useEffect(() => {
     setInbounds(db.getInbounds());
     const interval = setInterval(() => {
@@ -474,12 +480,467 @@ function InboundPage() {
     return () => clearInterval(interval);
   }, [refresh]);
 
+  React.useEffect(() => {
+    let interval: number;
+    if (isTimerRunning && selectedInbound?.startedAt) {
+      interval = window.setInterval(() => {
+        const start = new Date(selectedInbound.startedAt).getTime();
+        setElapsedTime(Math.floor((Date.now() - start) / 1000));
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isTimerRunning, selectedInbound]);
+
+  const handleCreate = () => {
+    if (!formData.driverName || !formData.driverCode || !formData.containerNumber || !formData.branchId) {
+      alert(lang === 'ar' ? 'يرجى ملء جميع الحقول المطلوبة' : 'Please fill all required fields');
+      return;
+    }
+
+    const newInbound = db.createInbound(
+      formData.driverName,
+      formData.driverCode,
+      formData.containerNumber,
+      formData.containerType,
+      formData.branchId
+    );
+    
+    setInbounds(db.getInbounds());
+    setSelectedInbound(newInbound);
+    setShowForm(false);
+    setFormData({
+      driverName: '',
+      driverCode: '',
+      containerNumber: '',
+      containerType: '20ft',
+      branchId: '',
+    });
+  };
+
+  const handleStartCounting = (id: string) => {
+    db.startInbound(id);
+    setInbounds(db.getInbounds());
+    refresh();
+  };
+
+  const handleEndCounting = (id: string) => {
+    db.completeInbound(id);
+    setInbounds(db.getInbounds());
+    refresh();
+  };
+
+  const handleAddItem = () => {
+    if (!selectedInbound) return;
+    const quantityNum = parseInt(itemForm.quantity);
+    if (!itemForm.itemName || !itemForm.itemCode || !itemForm.quantity || quantityNum <= 0) {
+      alert(lang === 'ar' ? 'يرجى ملء جميع الحقول المطلوبة' : 'Please fill all required fields');
+      return;
+    }
+
+    db.addInboundItem(
+      selectedInbound.id,
+      itemForm.itemName,
+      itemForm.itemCode,
+      quantityNum,
+      itemForm.unit,
+      itemForm.notes
+    );
+
+    const updated = db.getInbound(selectedInbound.id);
+    if (updated) setSelectedInbound(updated);
+    setInbounds(db.getInbounds());
+    
+    setItemForm({
+      itemName: '',
+      itemCode: '',
+      quantity: '',
+      unit: 'قطعة',
+      notes: '',
+    });
+  };
+
+  const handleRemoveItem = (itemId: string) => {
+    if (!selectedInbound) return;
+    db.removeInboundItem(selectedInbound.id, itemId);
+    const updated = db.getInbound(selectedInbound.id);
+    if (updated) setSelectedInbound(updated);
+    setInbounds(db.getInbounds());
+  };
+
+  const calculateDuration = (startedAt: string | null, completedAt: string | null): string => {
+    if (!startedAt) return '-';
+    const start = new Date(startedAt).getTime();
+    const end = completedAt ? new Date(completedAt).getTime() : Date.now();
+    const durationSeconds = Math.floor((end - start) / 1000);
+    return formatDuration(durationSeconds, lang);
+  };
+
+  const statusBadge = (status: string) => {
+    const map: Record<string, string> = {
+      'PENDING': 'badge-gray',
+      'IN_PROGRESS': 'badge-blue',
+      'COMPLETED': 'badge-green',
+      'CANCELLED': 'badge-red',
+    };
+    const labels: Record<string, string> = {
+      'PENDING': lang === 'ar' ? 'قيد الانتظار' : 'Pending',
+      'IN_PROGRESS': lang === 'ar' ? 'قيد التنفيذ' : 'In Progress',
+      'COMPLETED': lang === 'ar' ? 'مكتمل' : 'Completed',
+      'CANCELLED': lang === 'ar' ? 'ملغي' : 'Cancelled',
+    };
+    return <span className={`badge ${map[status] || 'badge-gray'}`}>{labels[status] || status}</span>;
+  };
+
   return (
     <div className="space-y-6 animate-slide-up">
-      <h2 className="text-2xl font-bold text-gray-800">{lang === 'ar' ? 'الوارد' : 'Inbound'}</h2>
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+            <Package className="text-indigo-500" size={28} />
+            {lang === 'ar' ? 'الوارد' : 'Inbound'}
+          </h2>
+          <p className="text-gray-500 mt-1">
+            {lang === 'ar' ? 'إدارة الكونتينرات والبضائع الواردة' : 'Manage containers and incoming goods'}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setInbounds(db.getInbounds())}
+            className="btn btn-outline"
+            title={lang === 'ar' ? 'تحديث' : 'Refresh'}
+          >
+            <RefreshCw size={16} />
+            <span className="hidden md:inline">{lang === 'ar' ? 'تحديث' : 'Refresh'}</span>
+          </button>
+          <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">
+            {lang === 'ar' ? 'وارد جديد' : 'New Inbound'}
+          </button>
+        </div>
+      </div>
+
+      {showForm && (
+        <div className="card p-6">
+          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <FileText size={18} className="text-indigo-500" />
+            {lang === 'ar' ? 'تسجيل وارد جديد' : 'Register New Inbound'}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'ar' ? 'اسم السائق' : 'Driver Name'} *
+              </label>
+              <input
+                value={formData.driverName}
+                onChange={e => setFormData({ ...formData, driverName: e.target.value })}
+                className="input"
+                placeholder={lang === 'ar' ? 'أدخل اسم السائق' : 'Enter driver name'}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'ar' ? 'كود السائق' : 'Driver Code'} *
+              </label>
+              <input
+                value={formData.driverCode}
+                onChange={e => setFormData({ ...formData, driverCode: e.target.value })}
+                className="input"
+                placeholder={lang === 'ar' ? 'أدخل كود السائق' : 'Enter driver code'}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'ar' ? 'رقم الحاوية' : 'Container Number'} *
+              </label>
+              <input
+                value={formData.containerNumber}
+                onChange={e => setFormData({ ...formData, containerNumber: e.target.value })}
+                className="input"
+                placeholder={lang === 'ar' ? 'مثال: CONT-12345' : 'Example: CONT-12345'}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'ar' ? 'نوع الحاوية' : 'Container Type'}
+              </label>
+              <select
+                value={formData.containerType}
+                onChange={e => setFormData({ ...formData, containerType: e.target.value })}
+                className="input"
+              >
+                <option value="20ft">20ft</option>
+                <option value="40ft">40ft</option>
+                <option value="40ft HC">40ft HC</option>
+                <option value="Reefer">Reefer</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {lang === 'ar' ? 'الفرع' : 'Branch'} *
+              </label>
+              <select
+                value={formData.branchId}
+                onChange={e => setFormData({ ...formData, branchId: e.target.value })}
+                className="input"
+              >
+                <option value="">-- اختر الفرع --</option>
+                {branches.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <button onClick={handleCreate} className="btn btn-success">
+              <CheckCircle size={16} />
+              {lang === 'ar' ? 'إنشاء' : 'Create'}
+            </button>
+            <button onClick={() => setShowForm(false)} className="btn btn-outline">
+              {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {selectedInbound && (
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md">
+                <Package size={24} className="text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-800 text-lg">{selectedInbound.inboundNumber || '-'}</h3>
+                <p className="text-sm text-gray-500">
+                  {selectedInbound.driverName || '-'} • {selectedInbound.containerNumber || '-'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {statusBadge(selectedInbound.status || 'PENDING')}
+              {selectedInbound.status === 'IN_PROGRESS' && (
+                <div className="text-2xl font-mono font-bold text-indigo-600 animate-pulse-live">
+                  {calculateDuration(selectedInbound.startedAt, null)}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="p-3 rounded-lg bg-gray-50">
+              <p className="text-xs text-gray-500">{lang === 'ar' ? 'السائق' : 'Driver'}</p>
+              <p className="font-semibold text-gray-800">{selectedInbound.driverName || '-'}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-gray-50">
+              <p className="text-xs text-gray-500">{lang === 'ar' ? 'كود السائق' : 'Driver Code'}</p>
+              <p className="font-semibold text-gray-800">{selectedInbound.driverCode || '-'}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-gray-50">
+              <p className="text-xs text-gray-500">{lang === 'ar' ? 'الحاوية' : 'Container'}</p>
+              <p className="font-semibold text-gray-800">{selectedInbound.containerNumber || '-'}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-gray-50">
+              <p className="text-xs text-gray-500">{lang === 'ar' ? 'النوع' : 'Type'}</p>
+              <p className="font-semibold text-gray-800">{selectedInbound.containerType || '-'}</p>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            {selectedInbound.status === 'PENDING' && (
+              <button onClick={() => handleStartCounting(selectedInbound.id)} className="btn btn-success">
+                <Play size={16} />
+                {lang === 'ar' ? 'بدء العد' : 'Start Counting'}
+              </button>
+            )}
+            {selectedInbound.status === 'IN_PROGRESS' && (
+              <button onClick={() => handleEndCounting(selectedInbound.id)} className="btn btn-danger">
+                <Square size={16} />
+                {lang === 'ar' ? 'إنهاء العد' : 'End Counting'}
+              </button>
+            )}
+            <button onClick={() => setSelectedInbound(null)} className="btn btn-outline">
+              {lang === 'ar' ? 'إغلاق' : 'Close'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {selectedInbound && selectedInbound.status === 'IN_PROGRESS' && (
+        <div className="card p-6">
+          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <ClipboardList size={18} className="text-indigo-500" />
+            {lang === 'ar' ? 'الأصناف الواردة' : 'Inbound Items'} ({selectedInbound.items?.length || 0})
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4 p-4 bg-gray-50 rounded-lg">
+            <input
+              value={itemForm.itemName}
+              onChange={e => setItemForm({ ...itemForm, itemName: e.target.value })}
+              className="input"
+              placeholder={lang === 'ar' ? 'اسم الصنف' : 'Item Name'}
+            />
+            <input
+              value={itemForm.itemCode}
+              onChange={e => setItemForm({ ...itemForm, itemCode: e.target.value })}
+              className="input"
+              placeholder={lang === 'ar' ? 'كود الصنف' : 'Item Code'}
+            />
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={itemForm.quantity}
+              onChange={e => setItemForm({ ...itemForm, quantity: e.target.value })}
+              className="input"
+              placeholder={lang === 'ar' ? 'الكمية' : 'Quantity'}
+            />
+            <input
+              value={itemForm.unit}
+              onChange={e => setItemForm({ ...itemForm, unit: e.target.value })}
+              className="input"
+              placeholder={lang === 'ar' ? 'الوحدة' : 'Unit'}
+            />
+            <button onClick={handleAddItem} className="btn btn-success">
+              <CheckCircle size={16} />
+              {lang === 'ar' ? 'إضافة' : 'Add'}
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table>
+              <thead>
+                <tr>
+                  <th>{lang === 'ar' ? 'كود الصنف' : 'Item Code'}</th>
+                  <th>{lang === 'ar' ? 'اسم الصنف' : 'Item Name'}</th>
+                  <th>{lang === 'ar' ? 'الكمية' : 'Quantity'}</th>
+                  <th>{lang === 'ar' ? 'الوحدة' : 'Unit'}</th>
+                  <th>{lang === 'ar' ? 'ملاحظات' : 'Notes'}</th>
+                  <th>{lang === 'ar' ? 'إجراءات' : 'Actions'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {!selectedInbound.items || selectedInbound.items.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center text-gray-400 py-8">
+                      {lang === 'ar' ? 'لا توجد أصناف مضافة' : 'No items added'}
+                    </td>
+                  </tr>
+                ) : (
+                  selectedInbound.items.map((item: any) => (
+                    <tr key={item.id}>
+                      <td className="font-mono font-bold text-indigo-600">{item.itemCode}</td>
+                      <td>{item.itemName}</td>
+                      <td className="font-bold">{item.quantity}</td>
+                      <td>{item.unit}</td>
+                      <td className="text-gray-500">{item.notes || '-'}</td>
+                      <td>
+                        <button
+                          onClick={() => handleRemoveItem(item.id)}
+                          className="btn btn-outline text-xs text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="card p-6">
-        <p className="text-gray-500">{lang === 'ar' ? 'إدارة الكونتينرات والبضائع الواردة' : 'Manage containers and incoming goods'}</p>
-        <p className="text-sm text-gray-400 mt-2">{lang === 'ar' ? `عدد العمليات: ${inbounds.length}` : `Total operations: ${inbounds.length}`}</p>
+        <h3 className="font-bold text-gray-800 mb-4">
+          {lang === 'ar' ? 'سجل الوارد' : 'Inbound History'} ({inbounds.length})
+        </h3>
+        {!inbounds || inbounds.length === 0 ? (
+          <p className="text-center text-gray-400 py-8">{lang === 'ar' ? 'لا يوجد وارد مسجل' : 'No inbound records'}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table>
+              <thead>
+                <tr>
+                  <th>{lang === 'ar' ? 'الرقم' : 'Number'}</th>
+                  <th>{lang === 'ar' ? 'السائق' : 'Driver'}</th>
+                  <th>{lang === 'ar' ? 'الحاوية' : 'Container'}</th>
+                  <th>{lang === 'ar' ? 'الحالة' : 'Status'}</th>
+                  <th>{lang === 'ar' ? 'وقت الوارد' : 'Duration'}</th>
+                  <th>{lang === 'ar' ? 'التاريخ' : 'Date'}</th>
+                  <th>{lang === 'ar' ? 'الإجراءات' : 'Actions'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inbounds.map((inbound: any) => (
+                  <tr key={inbound.id}>
+                    <td className="font-mono font-bold text-indigo-600">{inbound.inboundNumber || '-'}</td>
+                    <td>{inbound.driverName || '-'}</td>
+                    <td>{inbound.containerNumber || '-'}</td>
+                    <td>{statusBadge(inbound.status || 'PENDING')}</td>
+                    <td className="font-mono text-sm">
+                      {inbound.status === 'IN_PROGRESS' ? (
+                        <span className="text-indigo-600 font-bold animate-pulse-live">
+                          {calculateDuration(inbound.startedAt, null)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-600">
+                          {calculateDuration(inbound.startedAt, inbound.completedAt)}
+                        </span>
+                      )}
+                    </td>
+                    <td className="text-gray-500">{inbound.createdAt ? formatTime(inbound.createdAt, lang) : '-'}</td>
+                    <td>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setSelectedInbound(inbound)}
+                          className="btn btn-outline text-xs"
+                        >
+                          {lang === 'ar' ? 'عرض' : 'View'}
+                        </button>
+                        {inbound.status === 'PENDING' && (
+                          <button
+                            onClick={() => handleStartCounting(inbound.id)}
+                            className="btn btn-success text-xs"
+                          >
+                            <Play size={12} />
+                            {lang === 'ar' ? 'بدء' : 'Start'}
+                          </button>
+                        )}
+                        {inbound.status === 'IN_PROGRESS' && (
+                          <button
+                            onClick={() => handleEndCounting(inbound.id)}
+                            className="btn btn-danger text-xs"
+                          >
+                            <Square size={12} />
+                            {lang === 'ar' ? 'إنهاء' : 'End'}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            if (window.confirm(lang === 'ar' 
+                              ? `هل أنت متأكد من حذف الوارد "${inbound.inboundNumber}"؟\nلا يمكن التراجع عن هذه العملية.`
+                              : `Are you sure you want to delete inbound "${inbound.inboundNumber}"?\nThis action cannot be undone.`)) {
+                              db.deleteInbound(inbound.id);
+                              setInbounds(db.getInbounds());
+                              if (selectedInbound?.id === inbound.id) {
+                                setSelectedInbound(null);
+                              }
+                              refresh();
+                            }
+                          }}
+                          className="btn btn-outline text-xs text-red-600 hover:bg-red-50"
+                          title={lang === 'ar' ? 'حذف الوارد' : 'Delete Inbound'}
+                        >
+                          <Trash2 size={12} />
+                          {lang === 'ar' ? 'حذف' : 'Delete'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -487,12 +948,122 @@ function InboundPage() {
 
 // Incoming Page
 function IncomingPage() {
-  const { lang } = useApp();
+  const { lang, refresh } = useApp();
+  const [couriers] = React.useState(db.getCouriers());
+  const [selectedCourier, setSelectedCourier] = React.useState('');
+  const [selectedBranch, setSelectedBranch] = React.useState('');
+  const [startPreparation, setStartPreparation] = React.useState(false);
+  const [branches] = React.useState(db.getBranches());
+  const [trips, setTrips] = React.useState(db.getTrips());
+  const [error, setError] = React.useState('');
+
+  const handleCheckIn = async () => {
+    if (!selectedCourier || !selectedBranch) {
+      setError('اختر المندوب والفرع');
+      return;
+    }
+    const result = await db.checkIn(selectedCourier, selectedBranch);
+    if (result.success && result.trip) {
+      setError('');
+      
+      const courier = db.getCourier(selectedCourier);
+      if (courier) {
+        notifyCourierCheckIn(courier.name, result.trip.tripNumber);
+      }
+      
+      if (startPreparation) {
+        await db.startStage(result.trip.id, 'PREPARATION');
+      }
+      
+      setSelectedCourier('');
+      setStartPreparation(false);
+      setTrips(db.getTrips());
+      refresh();
+    } else {
+      setError(result.error === 'ACTIVE_TRIP_EXISTS' ? 'المندوب لديه رحلة نشطة بالفعل' : 'حدث خطأ');
+    }
+  };
+
+  const activeTrips = trips.filter(t => t.status === 'ACTIVE' || t.status === 'WAITING');
+
   return (
     <div className="space-y-6 animate-slide-up">
       <h2 className="text-2xl font-bold text-gray-800">{t('incoming.title', lang)}</h2>
+
       <div className="card p-6">
-        <p className="text-gray-500">{lang === 'ar' ? 'تسجيل وصول المندوبين' : 'Courier check-in'}</p>
+        <h3 className="font-semibold mb-4">{t('incoming.register', lang)}</h3>
+        {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm mb-4">{error}</div>}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <select value={selectedCourier} onChange={e => setSelectedCourier(e.target.value)} className="input">
+            <option value="">-- اختر المندوب --</option>
+            {couriers.filter(c => c.status === 'AVAILABLE').map(c => (
+              <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
+            ))}
+          </select>
+          <select value={selectedBranch} onChange={e => setSelectedBranch(e.target.value)} className="input">
+            <option value="">-- اختر الفرع --</option>
+            {branches.map(b => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+          <button onClick={handleCheckIn} className="btn btn-success">
+            <ArrowDownCircle size={18} />
+            {t('incoming.register', lang)}
+          </button>
+        </div>
+        
+        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={startPreparation}
+              onChange={e => setStartPreparation(e.target.checked)}
+              className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+            />
+            <div className="flex-1">
+              <p className="font-medium text-gray-800">
+                {lang === 'ar' ? 'بدء التحضير المسبق' : 'Start Preparation in Advance'}
+              </p>
+              <p className="text-sm text-gray-600">
+                {lang === 'ar' 
+                  ? 'بدء مرحلة التحضير وتجهيز الطلب فوراً (حتى قبل وصول المندوب)'
+                  : 'Start preparation stage immediately (even before courier arrives)'}
+              </p>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div className="card p-6">
+        <h3 className="font-semibold mb-4">الرحلات النشطة</h3>
+        {activeTrips.length === 0 ? (
+          <p className="text-center text-gray-500 py-8">{t('common.no_data', lang)}</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>{t('incoming.trip_number', lang)}</th>
+                <th>{t('couriers.name', lang)}</th>
+                <th>{t('couriers.branch', lang)}</th>
+                <th>{t('workflow.current_stage', lang)}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {activeTrips.map(trip => {
+                const courier = db.getCourier(trip.courierId);
+                const branch = db.getBranch(trip.branchId);
+                return (
+                  <tr key={trip.id}>
+                    <td className="font-mono">{trip.tripNumber}</td>
+                    <td>{courier?.name}</td>
+                    <td>{branch?.name}</td>
+                    <td><span className="badge badge-blue">{t(`stage.${trip.currentStage}`, lang)}</span></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
@@ -500,13 +1071,112 @@ function IncomingPage() {
 
 // Couriers Page
 function CouriersPage() {
-  const { lang } = useApp();
-  const [couriers] = React.useState(db.getCouriers());
+  const { lang, refresh } = useApp();
+  const [couriers, setCouriers] = React.useState(db.getCouriers());
   const [branches] = React.useState(db.getBranches());
+  const [showImportModal, setShowImportModal] = React.useState(false);
+  const [importResult, setImportResult] = React.useState<{ success: number; failed: number; errors: string[] } | null>(null);
+
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setCouriers(db.getCouriers());
+      refresh();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  const handleManualRefresh = () => {
+    setCouriers(db.getCouriers());
+    refresh();
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        const couriersData = jsonData.map((row: any) => {
+          const name = row['الاسم'] || row['name'] || row['Name'] || 
+                      row['اسم المندوب'] || row['courier'] || row['Courier'] ||
+                      row['المندوب'] || '';
+
+          const code = row['الكود'] || row['code'] || row['Code'] || 
+                      row['كود المندوب'] || row['courier_code'] || row['courierCode'] ||
+                      row['رقم المندوب'] || '';
+
+          const phone = row['الهاتف'] || row['phone'] || row['Phone'] || 
+                       row['رقم الهاتف'] || row['tel'] || row['Tel'] ||
+                       row['mobile'] || row['Mobile'] || '';
+
+          const branch = row['الفرع'] || row['branchId'] || row['Branch'] || 
+                        row['branch'] || row['BranchId'] || row['branch_id'] ||
+                        row['الفرع الخاص'] || row['فرع'] || '';
+
+          return {
+            code,
+            name,
+            phone,
+            branchId: branch,
+          };
+        });
+
+        const result = db.bulkImportCouriers(couriersData);
+        setImportResult(result);
+        setCouriers(db.getCouriers());
+        refresh();
+      } catch (error) {
+        console.error('Error reading file:', error);
+        alert(lang === 'ar' ? 'خطأ في قراءة الملف' : 'Error reading file');
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const downloadTemplate = () => {
+    const template = [
+      { 'الكود': 'C001', 'الاسم': 'أحمد محمد', 'الهاتف': '0101234567', 'الفرع': 'القاهرة' },
+      { 'الكود': 'C002', 'الاسم': 'محمود علي', 'الهاتف': '0109876543', 'الفرع': 'الإسكندرية' },
+      { 'الكود': 'C003', 'الاسم': 'خالد حسن', 'الهاتف': '0115554433', 'الفرع': 'طنطا' },
+      { 'الكود': '', 'الاسم': 'عمر سعيد', 'الهاتف': '0127778899', 'الفرع': '' },
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(template);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'المندوبون');
+    XLSX.writeFile(workbook, 'couriers_template.xlsx');
+  };
 
   return (
     <div className="space-y-6 animate-slide-up">
-      <h2 className="text-2xl font-bold text-gray-800">{t('couriers.title', lang)}</h2>
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <h2 className="text-2xl font-bold text-gray-800">{t('couriers.title', lang)}</h2>
+        <div className="flex gap-2">
+          <button
+            onClick={handleManualRefresh}
+            className="btn btn-outline"
+            title={lang === 'ar' ? 'تحديث' : 'Refresh'}
+          >
+            <RefreshCw size={16} />
+            <span className="hidden md:inline">{lang === 'ar' ? 'تحديث' : 'Refresh'}</span>
+          </button>
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="btn btn-primary"
+          >
+            <Upload size={18} />
+            {lang === 'ar' ? 'استيراد مندوبين' : 'Import Couriers'}
+          </button>
+        </div>
+      </div>
+
       <div className="card p-6">
         <table>
           <thead>
@@ -516,6 +1186,7 @@ function CouriersPage() {
               <th>{t('couriers.phone', lang)}</th>
               <th>{t('couriers.branch', lang)}</th>
               <th>{t('couriers.status', lang)}</th>
+              <th>{lang === 'ar' ? 'الإجراءات' : 'Actions'}</th>
             </tr>
           </thead>
           <tbody>
@@ -528,6 +1199,673 @@ function CouriersPage() {
                   <td>{courier.phone}</td>
                   <td>{branch?.name}</td>
                   <td><span className="badge badge-green">{courier.status}</span></td>
+                  <td>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          const newName = prompt(lang === 'ar' ? 'أدخل الاسم الجديد:' : 'Enter new name:', courier.name);
+                          if (newName && newName !== courier.name) {
+                            db.updateCourier(courier.id, { name: newName });
+                            setCouriers(db.getCouriers());
+                            refresh();
+                          }
+                        }}
+                        className="btn btn-outline text-xs"
+                        title={lang === 'ar' ? 'تعديل' : 'Edit'}
+                      >
+                        <Edit size={12} />
+                        {lang === 'ar' ? 'تعديل' : 'Edit'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm(lang === 'ar'
+                            ? `هل أنت متأكد من حذف المندوب "${courier.name}"؟\nلا يمكن التراجع عن هذه العملية.`
+                            : `Are you sure you want to delete courier "${courier.name}"?\nThis action cannot be undone.`)) {
+                            db.deleteCourier(courier.id);
+                            setCouriers(db.getCouriers());
+                            refresh();
+                          }
+                        }}
+                        className="btn btn-outline text-xs text-red-600 hover:bg-red-50"
+                        title={lang === 'ar' ? 'حذف' : 'Delete'}
+                      >
+                        <Trash2 size={12} />
+                        {lang === 'ar' ? 'حذف' : 'Delete'}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-800">
+                  {lang === 'ar' ? 'استيراد المندوبين من ملف Excel' : 'Import Couriers from Excel'}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowImportModal(false);
+                    setImportResult(null);
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              {!importResult ? (
+                <div className="space-y-6">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-blue-900 mb-2">
+                      {lang === 'ar' ? 'تعليمات الاستيراد:' : 'Import Instructions:'}
+                    </h4>
+                    <ul className="text-sm text-blue-800 space-y-1">
+                      <li>• <strong>{lang === 'ar' ? 'الاسم فقط مطلوب' : 'Only name is required'}</strong> - {lang === 'ar' ? 'باقي الحقول اختيارية' : 'other fields are optional'}</li>
+                      <li>• {lang === 'ar' ? 'يمكنك كتابة اسم الفرع مباشرة (مثل: القاهرة، الإسكندرية، طنطا)' : 'You can write branch name directly (e.g., Cairo, Alexandria, Tanta)'}</li>
+                      <li>• {lang === 'ar' ? 'إذا لم يتم تحديد كود، سيتم توليده تلقائياً' : 'If code is not provided, it will be auto-generated'}</li>
+                      <li>• {lang === 'ar' ? 'إذا لم يتم تحديد فرع، سيتم استخدام الفرع الافتراضي' : 'If branch is not specified, default branch will be used'}</li>
+                    </ul>
+                  </div>
+
+                  <div className="flex justify-center">
+                    <button
+                      onClick={downloadTemplate}
+                      className="btn btn-outline"
+                    >
+                      <Download size={18} />
+                      {lang === 'ar' ? 'تحميل نموذج Excel' : 'Download Excel Template'}
+                    </button>
+                  </div>
+
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      id="file-upload"
+                    />
+                    <label
+                      htmlFor="file-upload"
+                      className="cursor-pointer flex flex-col items-center gap-3"
+                    >
+                      <Upload size={48} className="text-gray-400" />
+                      <div>
+                        <p className="text-lg font-medium text-gray-700">
+                          {lang === 'ar' ? 'انقر لرفع ملف Excel' : 'Click to upload Excel file'}
+                        </p>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {lang === 'ar' ? 'يدعم ملفات .xlsx و .xls' : 'Supports .xlsx and .xls files'}
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-green-900 mb-2">
+                      {lang === 'ar' ? '✅ الفروع المتاحة (يمكنك استخدام الاسم أو المعرف):' : '✅ Available Branches (you can use name or ID):'}
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                      {branches.map(branch => (
+                        <div key={branch.id} className="bg-white rounded-lg p-3 border border-green-300">
+                          <div className="font-bold text-green-800 mb-1">{branch.name}</div>
+                          <div className="text-xs text-gray-600">
+                            {lang === 'ar' ? 'المعرف:' : 'ID:'} <span className="font-mono font-bold text-indigo-600">{branch.id}</span>
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {lang === 'ar' ? 'أو اكتب:' : 'Or write:'} <span className="font-medium">{branch.name}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                      <CheckCircle size={32} className="text-green-600 mx-auto mb-2" />
+                      <p className="text-3xl font-bold text-green-700">{importResult.success}</p>
+                      <p className="text-sm text-green-600">
+                        {lang === 'ar' ? 'تم استيرادهم بنجاح' : 'Successfully imported'}
+                      </p>
+                    </div>
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                      <AlertTriangle size={32} className="text-red-600 mx-auto mb-2" />
+                      <p className="text-3xl font-bold text-red-700">{importResult.failed}</p>
+                      <p className="text-sm text-red-600">
+                        {lang === 'ar' ? 'فشل استيرادهم' : 'Failed to import'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {importResult.errors.length > 0 && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-red-900 mb-2">
+                        {lang === 'ar' ? 'تفاصيل الأخطاء:' : 'Error Details:'}
+                      </h4>
+                      <ul className="text-sm text-red-800 space-y-1 max-h-48 overflow-y-auto">
+                        {importResult.errors.map((error, idx) => (
+                          <li key={idx}>• {error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setShowImportModal(false);
+                        setImportResult(null);
+                      }}
+                      className="btn btn-primary flex-1"
+                    >
+                      {lang === 'ar' ? 'إغلاق' : 'Close'}
+                    </button>
+                    <button
+                      onClick={() => setImportResult(null)}
+                      className="btn btn-outline flex-1"
+                    >
+                      {lang === 'ar' ? 'استيراد المزيد' : 'Import More'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Preparation Page
+function PreparationPage() {
+  const { lang, refresh } = useApp();
+  const [, setTick] = React.useState(0);
+  const trips = db.getTrips().filter(t => (t.status === 'ACTIVE' || t.status === 'WAITING') && t.currentStage === 'PREPARATION');
+
+  React.useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  React.useEffect(() => {
+    const interval = setInterval(() => refresh(), 3000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  const handleStart = async (tripId: string) => {
+    const result = await db.startStage(tripId, 'PREPARATION');
+    if (result.success) refresh();
+    else alert(result.error);
+  };
+
+  const handleFinish = async (tripId: string) => {
+    const result = await db.finishStage(tripId, 'PREPARATION');
+    if (result.success) refresh();
+    else alert(result.error);
+  };
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('nav.preparation', lang)}</h2>
+      {trips.length === 0 ? (
+        <div className="card text-center py-12 text-gray-500">
+          <Package size={48} className="mx-auto mb-4 opacity-50" />
+          <p>{t('common.no_data', lang)}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {trips.map(trip => {
+            const courier = db.getCourier(trip.courierId);
+            const branch = db.getBranch(trip.branchId);
+            const stages = db.getTripStages(trip.id);
+            const stageData = stages.find(s => s.stage === 'PREPARATION');
+            let liveDuration = 0;
+            if (stageData?.startedAt && stageData.status === 'IN_PROGRESS') {
+              liveDuration = Math.floor((Date.now() - new Date(stageData.startedAt).getTime()) / 1000);
+            }
+            return (
+              <div key={trip.id} className="card p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="font-bold text-gray-800">{courier?.name}</p>
+                    <p className="text-xs text-gray-500">{courier?.code} • {trip.tripNumber}</p>
+                  </div>
+                  <span className={`badge ${trip.status === 'ACTIVE' ? 'badge-green' : 'badge-orange'}`}>{trip.status}</span>
+                </div>
+                <div className="space-y-2 text-sm mb-3">
+                  <div className="flex justify-between"><span className="text-gray-600">{t('couriers.branch', lang)}:</span><span className="font-medium">{branch?.name}</span></div>
+                  {stageData?.status === 'IN_PROGRESS' && (
+                    <div className="flex justify-between"><span className="text-gray-600">{t('workflow.duration', lang)}:</span><span className="font-mono text-indigo-600 font-bold animate-pulse-live">{formatDuration(liveDuration, lang)}</span></div>
+                  )}
+                </div>
+                <div className="mt-4 flex gap-2">
+                  {stageData?.status === 'PENDING' && (
+                    <button onClick={() => handleStart(trip.id)} className="btn btn-success flex-1"><Play size={14} />{t('workflow.start', lang)}</button>
+                  )}
+                  {stageData?.status === 'IN_PROGRESS' && (
+                    <button onClick={() => handleFinish(trip.id)} className="btn btn-danger flex-1"><Square size={14} />{t('workflow.finish', lang)}</button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Inventory Page
+function InventoryPage() {
+  const { lang, refresh } = useApp();
+  const [, setTick] = React.useState(0);
+  const trips = db.getTrips().filter(t => (t.status === 'ACTIVE' || t.status === 'WAITING') && t.currentStage === 'INVENTORY');
+
+  React.useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  React.useEffect(() => {
+    const interval = setInterval(() => refresh(), 3000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  const handleStart = async (tripId: string) => {
+    const result = await db.startStage(tripId, 'INVENTORY');
+    if (result.success) refresh();
+    else alert(result.error);
+  };
+
+  const handleFinish = async (tripId: string) => {
+    const result = await db.finishStage(tripId, 'INVENTORY');
+    if (result.success) refresh();
+    else alert(result.error);
+  };
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('nav.inventory', lang)}</h2>
+      {trips.length === 0 ? (
+        <div className="card text-center py-12 text-gray-500">
+          <ClipboardList size={48} className="mx-auto mb-4 opacity-50" />
+          <p>{t('common.no_data', lang)}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {trips.map(trip => {
+            const courier = db.getCourier(trip.courierId);
+            const branch = db.getBranch(trip.branchId);
+            const stages = db.getTripStages(trip.id);
+            const stageData = stages.find(s => s.stage === 'INVENTORY');
+            let liveDuration = 0;
+            if (stageData?.startedAt && stageData.status === 'IN_PROGRESS') {
+              liveDuration = Math.floor((Date.now() - new Date(stageData.startedAt).getTime()) / 1000);
+            }
+            return (
+              <div key={trip.id} className="card p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="font-bold text-gray-800">{courier?.name}</p>
+                    <p className="text-xs text-gray-500">{courier?.code} • {trip.tripNumber}</p>
+                  </div>
+                  <span className={`badge ${trip.status === 'ACTIVE' ? 'badge-green' : 'badge-orange'}`}>{trip.status}</span>
+                </div>
+                <div className="space-y-2 text-sm mb-3">
+                  <div className="flex justify-between"><span className="text-gray-600">{t('couriers.branch', lang)}:</span><span className="font-medium">{branch?.name}</span></div>
+                  {stageData?.status === 'IN_PROGRESS' && (
+                    <div className="flex justify-between"><span className="text-gray-600">{t('workflow.duration', lang)}:</span><span className="font-mono text-indigo-600 font-bold animate-pulse-live">{formatDuration(liveDuration, lang)}</span></div>
+                  )}
+                </div>
+                <div className="mt-4 flex gap-2">
+                  {stageData?.status === 'PENDING' && (
+                    <button onClick={() => handleStart(trip.id)} className="btn btn-success flex-1"><Play size={14} />{t('workflow.start', lang)}</button>
+                  )}
+                  {stageData?.status === 'IN_PROGRESS' && (
+                    <button onClick={() => handleFinish(trip.id)} className="btn btn-danger flex-1"><Square size={14} />{t('workflow.finish', lang)}</button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Loading Page
+function LoadingPage() {
+  const { lang, refresh } = useApp();
+  const [, setTick] = React.useState(0);
+  const trips = db.getTrips().filter(t => (t.status === 'ACTIVE' || t.status === 'WAITING') && t.currentStage === 'LOADING');
+
+  React.useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  React.useEffect(() => {
+    const interval = setInterval(() => refresh(), 3000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  const handleStart = async (tripId: string) => {
+    const result = await db.startStage(tripId, 'LOADING');
+    if (result.success) refresh();
+    else alert(result.error);
+  };
+
+  const handleFinish = async (tripId: string) => {
+    const result = await db.finishStage(tripId, 'LOADING');
+    if (result.success) {
+      db.runDecisionEngine(tripId);
+      refresh();
+    } else {
+      alert(result.error);
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('nav.loading', lang)}</h2>
+      {trips.length === 0 ? (
+        <div className="card text-center py-12 text-gray-500">
+          <Truck size={48} className="mx-auto mb-4 opacity-50" />
+          <p>{t('common.no_data', lang)}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {trips.map(trip => {
+            const courier = db.getCourier(trip.courierId);
+            const branch = db.getBranch(trip.branchId);
+            const stages = db.getTripStages(trip.id);
+            const stageData = stages.find(s => s.stage === 'LOADING');
+            let liveDuration = 0;
+            if (stageData?.startedAt && stageData.status === 'IN_PROGRESS') {
+              liveDuration = Math.floor((Date.now() - new Date(stageData.startedAt).getTime()) / 1000);
+            }
+            return (
+              <div key={trip.id} className="card p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="font-bold text-gray-800">{courier?.name}</p>
+                    <p className="text-xs text-gray-500">{courier?.code} • {trip.tripNumber}</p>
+                  </div>
+                  <span className={`badge ${trip.status === 'ACTIVE' ? 'badge-green' : 'badge-orange'}`}>{trip.status}</span>
+                </div>
+                <div className="space-y-2 text-sm mb-3">
+                  <div className="flex justify-between"><span className="text-gray-600">{t('couriers.branch', lang)}:</span><span className="font-medium">{branch?.name}</span></div>
+                  {stageData?.status === 'IN_PROGRESS' && (
+                    <div className="flex justify-between"><span className="text-gray-600">{t('workflow.duration', lang)}:</span><span className="font-mono text-indigo-600 font-bold animate-pulse-live">{formatDuration(liveDuration, lang)}</span></div>
+                  )}
+                </div>
+                <div className="mt-4 flex gap-2">
+                  {stageData?.status === 'PENDING' && (
+                    <button onClick={() => handleStart(trip.id)} className="btn btn-success flex-1"><Play size={14} />{t('workflow.start', lang)}</button>
+                  )}
+                  {stageData?.status === 'IN_PROGRESS' && (
+                    <button onClick={() => handleFinish(trip.id)} className="btn btn-danger flex-1"><Square size={14} />{t('workflow.finish', lang)}</button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Workflow Page
+function WorkflowPage() {
+  const { lang, refresh } = useApp();
+  const [, setTick] = React.useState(0);
+  const trips = db.getTrips().filter(t => t.status === 'ACTIVE' || t.status === 'WAITING');
+
+  React.useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  React.useEffect(() => {
+    const interval = setInterval(() => refresh(), 3000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  const handleStart = async (tripId: string, stage: db.StageName) => {
+    const result = await db.startStage(tripId, stage);
+    if (result.success) {
+      const trip = db.getTrip(tripId);
+      if (trip) {
+        notifyStageStarted(t(`stage.${stage}`, lang), trip.tripNumber);
+      }
+      refresh();
+    } else {
+      alert(result.error);
+    }
+  };
+
+  const handleFinish = async (tripId: string, stage: db.StageName) => {
+    const result = await db.finishStage(tripId, stage);
+    if (result.success) {
+      const trip = db.getTrip(tripId);
+      if (trip) {
+        notifyStageCompleted(t(`stage.${stage}`, lang), trip.tripNumber);
+      }
+      
+      if (stage === 'LOADING') {
+        const decision = db.runDecisionEngine(tripId);
+        if (decision && trip) {
+          notifyDecision(t(`decision.${decision.decision}`, lang), trip.tripNumber);
+        }
+      }
+      refresh();
+    } else {
+      alert(result.error);
+    }
+  };
+
+  const getActiveStages = (tripId: string) => {
+    const stages = db.getTripStages(tripId);
+    return stages.filter(s => s.status === 'IN_PROGRESS');
+  };
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <h2 className="text-2xl font-bold text-gray-800">{t('workflow.title', lang)}</h2>
+        <button onClick={() => refresh()} className="btn btn-outline" title={lang === 'ar' ? 'تحديث' : 'Refresh'}>
+          <RefreshCw size={16} />
+          <span className="hidden md:inline">{lang === 'ar' ? 'تحديث' : 'Refresh'}</span>
+        </button>
+      </div>
+
+      {trips.length === 0 ? (
+        <div className="card text-center py-12 text-gray-500">
+          <Package size={48} className="mx-auto mb-4 opacity-50" />
+          <p>{t('common.no_data', lang)}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {trips.map(trip => {
+            const courier = db.getCourier(trip.courierId);
+            const branch = db.getBranch(trip.branchId);
+            const stages = db.getTripStages(trip.id);
+            const activeStages = getActiveStages(trip.id);
+            const decision = db.getLatestDecision(trip.id);
+
+            return (
+              <div key={trip.id} className="card p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="font-bold text-gray-800">{courier?.name}</p>
+                    <p className="text-xs text-gray-500">{courier?.code} • {trip.tripNumber}</p>
+                  </div>
+                  <span className={`badge ${trip.status === 'ACTIVE' ? 'badge-green' : 'badge-orange'}`}>
+                    {trip.status}
+                  </span>
+                </div>
+
+                <div className="space-y-2 text-sm mb-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">{t('couriers.branch', lang)}:</span>
+                    <span className="font-medium">{branch?.name}</span>
+                  </div>
+                  
+                  {activeStages.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs text-gray-500 mb-1">
+                        {lang === 'ar' ? 'المراحل النشطة:' : 'Active Stages:'}
+                      </p>
+                      {activeStages.map(stage => {
+                        let liveDuration = 0;
+                        if (stage.startedAt) {
+                          liveDuration = Math.floor((Date.now() - new Date(stage.startedAt).getTime()) / 1000);
+                        }
+                        return (
+                          <div key={stage.id} className="flex justify-between items-center p-2 bg-blue-50 rounded mb-1">
+                            <span className="badge badge-blue">{t(`stage.${stage.stage}`, lang)}</span>
+                            <span className="font-mono text-xs text-indigo-600 font-bold animate-pulse-live">
+                              {formatDuration(liveDuration, lang)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {decision && (
+                  <div className="mt-3 p-2 rounded-lg bg-gray-50 border">
+                    <p className="text-xs text-gray-500 mb-1">{t('workflow.decision', lang)}</p>
+                    <p className="text-sm font-medium">{t(`decision.${decision.decision}`, lang)}</p>
+                  </div>
+                )}
+
+                <div className="mt-4 space-y-2">
+                  {activeStages.map(stage => (
+                    <button
+                      key={stage.id}
+                      onClick={() => handleFinish(trip.id, stage.stage)}
+                      className="btn btn-danger w-full"
+                    >
+                      <Square size={14} />
+                      {lang === 'ar' ? `إنهاء ${t(`stage.${stage.stage}`, lang)}` : `Finish ${stage.stage}`}
+                    </button>
+                  ))}
+                  
+                  {activeStages.length === 0 && (
+                    <div className="space-y-2">
+                      {stages.filter(s => s.status === 'PENDING').slice(0, 3).map(stage => (
+                        <button
+                          key={stage.id}
+                          onClick={() => handleStart(trip.id, stage.stage)}
+                          className="btn btn-success w-full"
+                        >
+                          <Play size={14} />
+                          {lang === 'ar' ? `بدء ${t(`stage.${stage.stage}`, lang)}` : `Start ${stage.stage}`}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-4 pt-4 border-t border-gray-200 flex gap-2">
+                    <button
+                      onClick={async () => {
+                        const newStatus = prompt(
+                          lang === 'ar' 
+                            ? `تغيير حالة الرحلة ${trip.tripNumber}:\n(ACTIVE, WAITING, COMPLETED, CANCELLED)`
+                            : `Change status for trip ${trip.tripNumber}:\n(ACTIVE, WAITING, COMPLETED, CANCELLED)`,
+                          trip.status
+                        );
+                        if (newStatus && ['ACTIVE', 'WAITING', 'COMPLETED', 'CANCELLED'].includes(newStatus)) {
+                          db.updateTripStatus(trip.id, newStatus as db.TripStatus);
+                          refresh();
+                        }
+                      }}
+                      className="btn btn-outline text-xs flex-1"
+                      title={lang === 'ar' ? 'تعديل الحالة' : 'Edit Status'}
+                    >
+                      <Edit size={12} />
+                      {lang === 'ar' ? 'تعديل' : 'Edit'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(lang === 'ar'
+                          ? `هل أنت متأكد من حذف الرحلة "${trip.tripNumber}"؟\nسيتم حذف جميع المراحل المرتبطة.\nلا يمكن التراجع عن هذه العملية.`
+                          : `Are you sure you want to delete trip "${trip.tripNumber}"?\nAll related stages will be deleted.\nThis action cannot be undone.`)) {
+                          db.deleteTrip(trip.id);
+                          refresh();
+                        }
+                      }}
+                      className="btn btn-outline text-xs text-red-600 hover:bg-red-50 flex-1"
+                      title={lang === 'ar' ? 'حذف الرحلة' : 'Delete Trip'}
+                    >
+                      <Trash2 size={12} />
+                      {lang === 'ar' ? 'حذف' : 'Delete'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Trips Page
+function TripsPage() {
+  const { lang } = useApp();
+  const [trips] = React.useState(db.getTrips());
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('nav.trips', lang)}</h2>
+
+      <div className="card p-6">
+        <table>
+          <thead>
+            <tr>
+              <th>{t('incoming.trip_number', lang)}</th>
+              <th>{t('couriers.name', lang)}</th>
+              <th>{t('couriers.branch', lang)}</th>
+              <th>{t('incoming.arrival_time', lang)}</th>
+              <th>{t('workflow.current_stage', lang)}</th>
+              <th>{t('workflow.status', lang)}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {trips.length === 0 ? (
+              <tr><td colSpan={6} className="text-center text-gray-500 py-8">{t('common.no_data', lang)}</td></tr>
+            ) : trips.map(trip => {
+              const courier = db.getCourier(trip.courierId);
+              const branch = db.getBranch(trip.branchId);
+              return (
+                <tr key={trip.id}>
+                  <td className="font-mono">{trip.tripNumber}</td>
+                  <td>{courier?.name}</td>
+                  <td>{branch?.name}</td>
+                  <td>{formatTime(trip.arrivalAt, lang)}</td>
+                  <td><span className="badge badge-blue">{t(`stage.${trip.currentStage}`, lang)}</span></td>
+                  <td>
+                    <span className={`badge ${
+                      trip.status === 'ACTIVE' ? 'badge-green' :
+                      trip.status === 'COMPLETED' ? 'badge-gray' : 'badge-orange'
+                    }`}>{trip.status}</span>
+                  </td>
                 </tr>
               );
             })}
@@ -538,95 +1876,53 @@ function CouriersPage() {
   );
 }
 
-// Preparation Page
-function PreparationPage() {
-  const { lang } = useApp();
-  return (
-    <div className="space-y-6 animate-slide-up">
-      <h2 className="text-2xl font-bold text-gray-800">{t('nav.preparation', lang)}</h2>
-      <div className="card p-6">
-        <p className="text-gray-500">{lang === 'ar' ? 'إدارة مرحلة التحضير' : 'Preparation stage management'}</p>
-      </div>
-    </div>
-  );
-}
-
-// Inventory Page
-function InventoryPage() {
-  const { lang } = useApp();
-  return (
-    <div className="space-y-6 animate-slide-up">
-      <h2 className="text-2xl font-bold text-gray-800">{t('nav.inventory', lang)}</h2>
-      <div className="card p-6">
-        <p className="text-gray-500">{lang === 'ar' ? 'إدارة مرحلة الجرد' : 'Inventory stage management'}</p>
-      </div>
-    </div>
-  );
-}
-
-// Loading Page
-function LoadingPage() {
-  const { lang } = useApp();
-  return (
-    <div className="space-y-6 animate-slide-up">
-      <h2 className="text-2xl font-bold text-gray-800">{t('nav.loading', lang)}</h2>
-      <div className="card p-6">
-        <p className="text-gray-500">{lang === 'ar' ? 'إدارة مرحلة التحميل' : 'Loading stage management'}</p>
-      </div>
-    </div>
-  );
-}
-
-// Workflow Page
-function WorkflowPage() {
-  const { lang } = useApp();
-  const [trips] = React.useState(db.getTrips());
-  
-  return (
-    <div className="space-y-6 animate-slide-up">
-      <h2 className="text-2xl font-bold text-gray-800">{t('workflow.title', lang)}</h2>
-      <div className="card p-6">
-        <p className="text-gray-500">{lang === 'ar' ? `عدد الرحلات النشطة: ${trips.filter(t => t.status === 'ACTIVE').length}` : `Active trips: ${trips.filter(t => t.status === 'ACTIVE').length}`}</p>
-      </div>
-    </div>
-  );
-}
-
-// Trips Page
-function TripsPage() {
-  const { lang } = useApp();
-  const [trips] = React.useState(db.getTrips());
-  
-  return (
-    <div className="space-y-6 animate-slide-up">
-      <h2 className="text-2xl font-bold text-gray-800">{t('nav.trips', lang)}</h2>
-      <div className="card p-6">
-        <p className="text-gray-500">{lang === 'ar' ? `إجمالي الرحلات: ${trips.length}` : `Total trips: ${trips.length}`}</p>
-      </div>
-    </div>
-  );
-}
-
 // Cashier Page
 function CashierPage() {
-  const { lang } = useApp();
+  const { lang, refresh } = useApp();
   const [branches] = React.useState(db.getBranches());
-  
+
+  React.useEffect(() => {
+    const interval = setInterval(() => refresh(), 3000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  const cashierTrips = db.getTrips().filter(t => t.currentStage === 'CASHIER' && t.status === 'ACTIVE');
+
   return (
     <div className="space-y-6 animate-slide-up">
       <h2 className="text-2xl font-bold text-gray-800">{t('cashier.title', lang)}</h2>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {branches.map(branch => (
-          <div key={branch.id} className="card p-4">
-            <h3 className="font-semibold text-gray-800 mb-3">{branch.name}</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div className={`p-3 rounded-lg ${branch.cashierOccupancy < branch.cashierCapacity ? 'bg-green-50' : 'bg-red-50'}`}>
-                <p className="text-xs text-gray-600">{t('cashier.title', lang)}</p>
-                <p className="text-xl font-bold">{branch.cashierOccupancy} / {branch.cashierCapacity}</p>
+        {branches.map(branch => {
+          const branchTrips = cashierTrips.filter(t => t.branchId === branch.id);
+          const queueCount = db.getQueue(branch.id).filter(q => q.status === 'WAITING').length;
+          const isFull = branch.cashierOccupancy >= branch.cashierCapacity;
+
+          return (
+            <div key={branch.id} className="card p-6">
+              <h3 className="font-semibold text-gray-800 mb-3">{branch.name}</h3>
+              <div className={`p-4 rounded-lg text-center ${isFull ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'}`}>
+                <p className="text-4xl font-bold">{branch.cashierOccupancy} / {branch.cashierCapacity}</p>
+                <p className="text-sm mt-1">{isFull ? 'ممتلئ' : 'متاح'}</p>
+              </div>
+              <div className="mt-3 p-3 bg-orange-50 rounded-lg text-center">
+                <p className="text-2xl font-bold text-orange-700">{queueCount}</p>
+                <p className="text-xs text-orange-600">{t('queue.waiting', lang)}</p>
+              </div>
+              <div className="mt-3 space-y-2">
+                {branchTrips.map(trip => {
+                  const courier = db.getCourier(trip.courierId);
+                  return (
+                    <div key={trip.id} className="flex items-center justify-between p-2 bg-white rounded border">
+                      <span className="text-sm font-medium">{courier?.name}</span>
+                      <span className="text-xs text-gray-500">{trip.tripNumber}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -634,14 +1930,63 @@ function CashierPage() {
 
 // Queue Page
 function QueuePage() {
-  const { lang } = useApp();
-  const [queue] = React.useState(db.getQueue());
-  
+  const { lang, refresh } = useApp();
+  const [, setTick] = React.useState(0);
+  const queue = db.getQueue();
+
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setTick(t => t + 1);
+      refresh();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  const waitingQueue = queue.filter(q => q.status === 'WAITING');
+
   return (
     <div className="space-y-6 animate-slide-up">
-      <h2 className="text-2xl font-bold text-gray-800">{t('queue.title', lang)}</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-800">{t('queue.title', lang)}</h2>
+        <span className="badge badge-orange text-sm px-3 py-1">
+          {waitingQueue.length} {t('queue.waiting', lang)}
+        </span>
+      </div>
+
       <div className="card p-6">
-        <p className="text-gray-500">{lang === 'ar' ? `عدد المنتظرين: ${queue.filter(q => q.status === 'WAITING').length}` : `Waiting: ${queue.filter(q => q.status === 'WAITING').length}`}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>{t('queue.number', lang)}</th>
+              <th>{t('couriers.name', lang)}</th>
+              <th>{t('incoming.trip_number', lang)}</th>
+              <th>{t('couriers.branch', lang)}</th>
+              <th>{t('queue.priority', lang)}</th>
+              <th>{t('queue.position', lang)}</th>
+              <th>{t('queue.waiting', lang)}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {waitingQueue.length === 0 ? (
+              <tr><td colSpan={7} className="text-center text-gray-500 py-8">{t('common.no_data', lang)}</td></tr>
+            ) : waitingQueue.map((q, idx) => {
+              const trip = db.getTrip(q.tripId);
+              const courier = trip ? db.getCourier(trip.courierId) : null;
+              const branch = db.getBranch(q.branchId);
+              return (
+                <tr key={q.id}>
+                  <td className="font-mono font-bold">#{q.queueNumber}</td>
+                  <td>{courier?.name}</td>
+                  <td className="font-mono">{trip?.tripNumber}</td>
+                  <td>{branch?.name}</td>
+                  <td><span className="badge badge-purple">{q.priority}</span></td>
+                  <td><span className="badge badge-blue">{idx + 1}</span></td>
+                  <td><span className="badge badge-orange">{t('queue.waiting', lang)}</span></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -650,24 +1995,213 @@ function QueuePage() {
 // Reports Page
 function ReportsPage() {
   const { lang } = useApp();
+  const trips = db.getTrips();
+
+  const exportCSV = () => {
+    const headers = ['Trip Number', 'Courier', 'Branch', 'Arrival', 'Stage', 'Status'];
+    const rows = trips.map(trip => {
+      const courier = db.getCourier(trip.courierId);
+      const branch = db.getBranch(trip.branchId);
+      return [
+        trip.tripNumber,
+        courier?.name || '',
+        branch?.name || '',
+        trip.arrivalAt,
+        trip.currentStage,
+        trip.status,
+      ].join(',');
+    });
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'tbos-report.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportTripsExcel = () => {
+    try {
+      const tripsData = trips.map(trip => {
+        const courier = db.getCourier(trip.courierId);
+        const branch = db.getBranch(trip.branchId);
+        return {
+          tripNumber: trip.tripNumber,
+          courierName: courier?.name || '-',
+          branchName: branch?.name || '-',
+          arrivalAt: trip.arrivalAt,
+          currentStage: trip.currentStage,
+          status: trip.status,
+          completedAt: trip.completedAt,
+        };
+      });
+      exportTripsReport(tripsData, lang === 'ar' ? 'تقرير_الرحلات' : 'Trips_Report');
+    } catch (error) {
+      console.error('Export failed:', error);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-slide-up">
-      <h2 className="text-2xl font-bold text-gray-800">{t('reports.title', lang)}</h2>
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <h2 className="text-2xl font-bold text-gray-800">{t('reports.title', lang)}</h2>
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={handleExportTripsExcel} className="btn btn-primary">
+            <Download size={16} />
+            {lang === 'ar' ? 'تصدير الرحلات' : 'Export Trips'}
+          </button>
+          <button onClick={exportCSV} className="btn btn-outline">
+            {t('reports.export_csv', lang)}
+          </button>
+          <button onClick={() => window.print()} className="btn btn-outline">
+            {t('reports.print', lang)}
+          </button>
+        </div>
+      </div>
+
       <div className="card p-6">
-        <p className="text-gray-500">{lang === 'ar' ? 'التقارير والإحصائيات' : 'Reports and statistics'}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>{t('incoming.trip_number', lang)}</th>
+              <th>{t('couriers.name', lang)}</th>
+              <th>{t('couriers.branch', lang)}</th>
+              <th>{t('incoming.arrival_time', lang)}</th>
+              <th>{t('workflow.current_stage', lang)}</th>
+              <th>{t('workflow.status', lang)}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {trips.length === 0 ? (
+              <tr><td colSpan={6} className="text-center text-gray-500 py-8">{t('common.no_data', lang)}</td></tr>
+            ) : trips.map(trip => {
+              const courier = db.getCourier(trip.courierId);
+              const branch = db.getBranch(trip.branchId);
+              return (
+                <tr key={trip.id}>
+                  <td className="font-mono">{trip.tripNumber}</td>
+                  <td>{courier?.name}</td>
+                  <td>{branch?.name}</td>
+                  <td>{formatTime(trip.arrivalAt, lang)}</td>
+                  <td>{t(`stage.${trip.currentStage}`, lang)}</td>
+                  <td>
+                    <span className={`badge ${
+                      trip.status === 'ACTIVE' ? 'badge-green' :
+                      trip.status === 'COMPLETED' ? 'badge-gray' : 'badge-orange'
+                    }`}>{trip.status}</span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
 
-// Performance Report Page
-function PerformanceReportPage() {
+// Users Page
+function UsersPage() {
   const { lang } = useApp();
+  const [users] = React.useState(db.getUsers());
+
   return (
     <div className="space-y-6 animate-slide-up">
-      <h2 className="text-2xl font-bold text-gray-800">{t('nav.performance', lang)}</h2>
+      <h2 className="text-2xl font-bold text-gray-800">{t('users.title', lang)}</h2>
+
       <div className="card p-6">
-        <p className="text-gray-500">{lang === 'ar' ? 'تقرير أداء المندوبين' : 'Courier performance report'}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>{lang === 'ar' ? 'اسم المستخدم' : 'Username'}</th>
+              <th>{lang === 'ar' ? 'الاسم' : 'Name'}</th>
+              <th>{t('users.role', lang)}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map(u => (
+              <tr key={u.id}>
+                <td className="font-mono">{u.username}</td>
+                <td>{u.name}</td>
+                <td><span className="badge badge-purple">{u.role}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// Settings Page
+function SettingsPage() {
+  const { lang, refresh } = useApp();
+  const [branches, setBranches] = React.useState(db.getBranches());
+  const [saved, setSaved] = React.useState(false);
+
+  const handleSave = (id: string, updates: Partial<db.Branch>) => {
+    db.updateBranch(id, updates);
+    setBranches(db.getBranches());
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+    refresh();
+  };
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <h2 className="text-2xl font-bold text-gray-800">{t('settings.title', lang)}</h2>
+
+      {saved && (
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-lg text-sm">
+          ✓ {t('settings.saved', lang)}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {branches.map(branch => (
+          <BranchSettingsCard key={branch.id} branch={branch} onSave={handleSave} lang={lang} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BranchSettingsCard({ branch, onSave, lang }: { branch: db.Branch; onSave: (id: string, updates: Partial<db.Branch>) => void; lang: Lang }) {
+  const [cashierCapacity, setCashierCapacity] = React.useState(branch.cashierCapacity);
+  const [dockCapacity, setDockCapacity] = React.useState(branch.dockCapacity);
+  const [maxQueue, setMaxQueue] = React.useState(branch.maxQueue);
+  const [status, setStatus] = React.useState(branch.operationalStatus);
+
+  return (
+    <div className="card p-6">
+      <h3 className="font-semibold text-gray-800 mb-4">{branch.name} ({branch.code})</h3>
+      <div className="space-y-3">
+        <div>
+          <label className="block text-sm text-gray-600 mb-1">{t('settings.cashier_capacity', lang)}</label>
+          <input type="number" min={1} value={cashierCapacity} onChange={e => setCashierCapacity(Number(e.target.value))} className="input" />
+        </div>
+        <div>
+          <label className="block text-sm text-gray-600 mb-1">{t('settings.dock_capacity', lang)}</label>
+          <input type="number" min={1} value={dockCapacity} onChange={e => setDockCapacity(Number(e.target.value))} className="input" />
+        </div>
+        <div>
+          <label className="block text-sm text-gray-600 mb-1">{t('settings.max_queue', lang)}</label>
+          <input type="number" min={1} value={maxQueue} onChange={e => setMaxQueue(Number(e.target.value))} className="input" />
+        </div>
+        <div>
+          <label className="block text-sm text-gray-600 mb-1">{t('settings.operational_status', lang)}</label>
+          <select value={status} onChange={e => setStatus(e.target.value as db.Branch['operationalStatus'])} className="input">
+            <option value="ACTIVE">نشط</option>
+            <option value="PAUSED">متوقف</option>
+          </select>
+        </div>
+        <button
+          onClick={() => onSave(branch.id, { cashierCapacity, dockCapacity, maxQueue, operationalStatus: status })}
+          className="btn btn-primary w-full"
+        >
+          {t('settings.save', lang)}
+        </button>
       </div>
     </div>
   );
@@ -685,57 +2219,208 @@ function ActivityLogPage() {
   return <ActivityLogViewer lang={lang} />;
 }
 
-// Users Page
-function UsersPage() {
+// Performance Report Page
+function PerformanceReportPage() {
   const { lang } = useApp();
-  const [users] = React.useState(db.getUsers());
-  
-  return (
-    <div className="space-y-6 animate-slide-up">
-      <h2 className="text-2xl font-bold text-gray-800">{t('users.title', lang)}</h2>
-      <div className="card p-6">
-        <table>
-          <thead>
-            <tr>
-              <th>{lang === 'ar' ? 'اسم المستخدم' : 'Username'}</th>
-              <th>{lang === 'ar' ? 'الاسم' : 'Name'}</th>
-              <th>{t('users.role', lang)}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(user => (
-              <tr key={user.id}>
-                <td className="font-mono">{user.username}</td>
-                <td>{user.name}</td>
-                <td><span className="badge badge-purple">{user.role}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
+  const trips = db.getTrips();
+  const stages = ['ENTRY', 'DOCK', 'PREPARATION', 'INVENTORY', 'LOADING', 'CASHIER'];
 
-// Settings Page
-function SettingsPage() {
-  const { lang } = useApp();
-  const [branches, setBranches] = React.useState(db.getBranches());
-  
+  const getTripPerformance = (trip: any) => {
+    const tripStages = db.getTripStages(trip.id);
+    const stageDurations: Record<string, number> = {};
+    let totalTime = 0;
+
+    stages.forEach(stage => {
+      const stageData = tripStages.find(s => s.stage === stage);
+      if (stageData && stageData.durationSeconds) {
+        stageDurations[stage] = stageData.durationSeconds;
+        totalTime += stageData.durationSeconds;
+      } else {
+        stageDurations[stage] = 0;
+      }
+    });
+
+    return {
+      tripNumber: trip.tripNumber,
+      courier: db.getCourier(trip.courierId)?.name || '-',
+      branch: db.getBranch(trip.branchId)?.name || '-',
+      arrivalTime: trip.arrivalAt,
+      status: trip.status,
+      stageDurations,
+      totalTime,
+    };
+  };
+
+  const performances = trips.map(getTripPerformance);
+  const completedPerformances = performances.filter(p => p.status === 'COMPLETED');
+
+  const calculateAverage = (performances: any[], stage: string) => {
+    const validPerformances = performances.filter(p => p.stageDurations[stage] > 0);
+    if (validPerformances.length === 0) return 0;
+    const total = validPerformances.reduce((sum, p) => sum + p.stageDurations[stage], 0);
+    return Math.round(total / validPerformances.length);
+  };
+
+  const avgTotalTime = completedPerformances.length > 0
+    ? Math.round(completedPerformances.reduce((sum, p) => sum + p.totalTime, 0) / completedPerformances.length)
+    : 0;
+
+  const exportCSV = () => {
+    const headers = [
+      'Trip Number',
+      'Courier',
+      'Branch',
+      'Arrival Time',
+      'Status',
+      ...stages.map(s => s),
+      'Total Time'
+    ];
+    
+    const rows = performances.map(p => [
+      p.tripNumber,
+      p.courier,
+      p.branch,
+      p.arrivalTime,
+      p.status,
+      ...stages.map(s => p.stageDurations[s]),
+      p.totalTime
+    ].join(','));
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'performance-report.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportPerformanceExcel = () => {
+    try {
+      exportPerformanceReport(performances, lang === 'ar' ? 'تقرير_الأداء' : 'Performance_Report');
+    } catch (error) {
+      console.error('Export failed:', error);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-slide-up">
-      <h2 className="text-2xl font-bold text-gray-800">{t('settings.title', lang)}</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {branches.map(branch => (
-          <div key={branch.id} className="card p-4">
-            <h3 className="font-semibold text-gray-800 mb-3">{branch.name}</h3>
-            <div className="space-y-2 text-sm">
-              <p><span className="text-gray-600">{t('settings.cashier_capacity', lang)}:</span> {branch.cashierCapacity}</p>
-              <p><span className="text-gray-600">{t('settings.dock_capacity', lang)}:</span> {branch.dockCapacity}</p>
-              <p><span className="text-gray-600">{t('settings.max_queue', lang)}:</span> {branch.maxQueue}</p>
-            </div>
-          </div>
-        ))}
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <h2 className="text-2xl font-bold text-gray-800">
+          {lang === 'ar' ? 'تقرير أداء المندوبين' : 'Courier Performance Report'}
+        </h2>
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={handleExportPerformanceExcel} className="btn btn-primary">
+            <Download size={16} />
+            {lang === 'ar' ? 'تصدير Excel' : 'Export Excel'}
+          </button>
+          <button onClick={exportCSV} className="btn btn-success">
+            <Download size={16} />
+            {lang === 'ar' ? 'تصدير CSV' : 'Export CSV'}
+          </button>
+          <button onClick={() => window.print()} className="btn btn-outline">
+            {lang === 'ar' ? 'طباعة PDF' : 'Print PDF'}
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="card p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200">
+          <p className="text-sm text-gray-600">{lang === 'ar' ? 'إجمالي الرحلات' : 'Total Trips'}</p>
+          <p className="text-3xl font-bold text-blue-700 mt-1">{trips.length}</p>
+        </div>
+        <div className="card p-4 bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200">
+          <p className="text-sm text-gray-600">{lang === 'ar' ? 'الرحلات المكتملة' : 'Completed Trips'}</p>
+          <p className="text-3xl font-bold text-green-700 mt-1">{completedPerformances.length}</p>
+        </div>
+        <div className="card p-4 bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200">
+          <p className="text-sm text-gray-600">{lang === 'ar' ? 'متوسط الوقت الإجمالي' : 'Avg Total Time'}</p>
+          <p className="text-3xl font-bold text-purple-700 mt-1">{formatDuration(avgTotalTime, lang)}</p>
+        </div>
+        <div className="card p-4 bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200">
+          <p className="text-sm text-gray-600">{lang === 'ar' ? 'الرحلات النشطة' : 'Active Trips'}</p>
+          <p className="text-3xl font-bold text-orange-700 mt-1">{trips.filter(t => t.status === 'ACTIVE').length}</p>
+        </div>
+      </div>
+
+      <div className="card p-6">
+        <h3 className="font-bold text-gray-800 mb-4">
+          {lang === 'ar' ? 'متوسط الوقت لكل مرحلة' : 'Average Time per Stage'}
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {stages.map(stage => {
+            const avg = calculateAverage(completedPerformances, stage);
+            return (
+              <div key={stage} className="p-4 bg-gray-50 rounded-lg text-center">
+                <p className="text-xs text-gray-600 mb-1">{t(`stage.${stage}`, lang)}</p>
+                <p className="text-xl font-bold text-gray-800">{formatDuration(avg, lang)}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="card p-6">
+        <h3 className="font-bold text-gray-800 mb-4">
+          {lang === 'ar' ? 'تفاصيل أداء كل رحلة' : 'Detailed Trip Performance'}
+        </h3>
+        <div className="overflow-x-auto">
+          <table>
+            <thead>
+              <tr>
+                <th>{lang === 'ar' ? 'رقم الرحلة' : 'Trip Number'}</th>
+                <th>{lang === 'ar' ? 'المندوب' : 'Courier'}</th>
+                <th>{lang === 'ar' ? 'الفرع' : 'Branch'}</th>
+                {stages.map(stage => (
+                  <th key={stage}>{t(`stage.${stage}`, lang)}</th>
+                ))}
+                <th>{lang === 'ar' ? 'الوقت الإجمالي' : 'Total Time'}</th>
+                <th>{lang === 'ar' ? 'الحالة' : 'Status'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {performances.length === 0 ? (
+                <tr>
+                  <td colSpan={stages.length + 6} className="text-center text-gray-500 py-8">
+                    {lang === 'ar' ? 'لا توجد بيانات' : 'No data available'}
+                  </td>
+                </tr>
+              ) : (
+                performances.map(perf => (
+                  <tr key={perf.tripNumber}>
+                    <td className="font-mono font-bold text-indigo-600">{perf.tripNumber}</td>
+                    <td>{perf.courier}</td>
+                    <td>{perf.branch}</td>
+                    {stages.map(stage => (
+                      <td key={stage} className="font-mono text-sm">
+                        {perf.stageDurations[stage] > 0 ? (
+                          <span className="text-gray-700">
+                            {formatDuration(perf.stageDurations[stage], lang)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                    ))}
+                    <td className="font-mono font-bold text-purple-700">
+                      {perf.totalTime > 0 ? formatDuration(perf.totalTime, lang) : '-'}
+                    </td>
+                    <td>
+                      <span className={`badge ${
+                        perf.status === 'COMPLETED' ? 'badge-green' :
+                        perf.status === 'ACTIVE' ? 'badge-blue' :
+                        'badge-gray'
+                      }`}>
+                        {perf.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
