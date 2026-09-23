@@ -1,110 +1,62 @@
 import * as React from 'react';
-import { Wifi, WifiOff, RefreshCw, Cloud, CloudOff, AlertCircle } from 'lucide-react';
-import { connectionManager } from '../lib/supabase';
-import { realtimeSync } from '../lib/sync';
+import { Wifi, WifiOff } from 'lucide-react';
+import { Lang } from '../lib/i18n';
 
 interface ConnectionStatusProps {
-  lang?: 'ar' | 'en';
+  lang: Lang;
 }
 
-export default function ConnectionStatus({ lang = 'ar' }: ConnectionStatusProps) {
-  const [connectionStatus, setConnectionStatus] = React.useState<string>(connectionManager.getConnectionStatus());
-  const [isReconnecting, setIsReconnecting] = React.useState(false);
+export default function ConnectionStatus({ lang }: ConnectionStatusProps) {
+  const [isConnected, setIsConnected] = React.useState(true);
 
   React.useEffect(() => {
-    // مراقبة حالة الاتصال
-    const unsubscribe = connectionManager.onConnectionStatusChange((status) => {
-      setConnectionStatus(status);
-      setIsReconnecting(status === 'reconnecting');
-    });
+    const checkConnection = () => {
+      try {
+        const testKey = '__tbos_connection_test__';
+        localStorage.setItem(testKey, 'test');
+        const value = localStorage.getItem(testKey);
+        localStorage.removeItem(testKey);
+        setIsConnected(value === 'test');
+      } catch (error) {
+        setIsConnected(false);
+      }
+    };
 
-    return unsubscribe;
+    checkConnection();
+    const interval = setInterval(checkConnection, 30000);
+    return () => clearInterval(interval);
   }, []);
 
-  const handleReconnect = () => {
-    console.log('🔄 Manual reconnect triggered');
-    realtimeSync.forceReconnect();
-  };
-
-  const isConnected = connectionStatus === 'connected';
-  const isDisconnected = connectionStatus === 'disconnected';
-  const isReconnectingStatus = connectionStatus === 'reconnecting';
-
-  const getStatusColor = () => {
-    if (isConnected) return 'bg-green-500';
-    if (isReconnectingStatus) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
-
-  const getStatusIcon = () => {
-    if (isConnected) return <Cloud size={12} className="text-green-600" />;
-    if (isReconnectingStatus) return <RefreshCw size={12} className="text-yellow-600 animate-spin" />;
-    return <CloudOff size={12} className="text-red-600" />;
-  };
-
-  const getStatusText = () => {
-    if (isConnected) return lang === 'ar' ? 'متصل' : 'Connected';
-    if (isReconnectingStatus) return lang === 'ar' ? 'جاري إعادة الاتصال...' : 'Reconnecting...';
-    return lang === 'ar' ? 'غير متصل' : 'Disconnected';
-  };
-
-  const getStatusTooltip = () => {
-    if (isConnected) {
-      return lang === 'ar' 
-        ? 'التطبيق متصل بـ Supabase ويعمل بشكل حي' 
-        : 'Application is connected to Supabase and working in real-time';
-    }
-    if (isReconnectingStatus) {
-      return lang === 'ar'
-        ? 'جاري محاولة إعادة الاتصال بـ Supabase...'
-        : 'Attempting to reconnect to Supabase...';
-    }
-    return lang === 'ar'
-      ? 'التطبيق غير متصل بـ Supabase - انقر لإعادة الاتصال'
-      : 'Application is not connected to Supabase - Click to reconnect';
-  };
-
-  const statusClass = isConnected 
-    ? 'connected' 
-    : isReconnectingStatus
-    ? 'reconnecting'
-    : 'disconnected';
+  const statusColor = isConnected ? 'bg-green-500' : 'bg-red-500';
+  const statusText = isConnected 
+    ? (lang === 'ar' ? 'متصل' : 'Online')
+    : (lang === 'ar' ? 'غير متصل' : 'Offline');
+  
+  const statusTooltip = isConnected
+    ? (lang === 'ar' ? 'التطبيق متصل ويعمل بشكل طبيعي' : 'Application is connected and working normally')
+    : (lang === 'ar' ? 'التطبيق غير متصل' : 'Application is not connected');
 
   return (
     <div 
-      className={`connection-status ${statusClass}`}
-      onClick={isDisconnected ? handleReconnect : undefined}
-      title={getStatusTooltip()}
+      className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 backdrop-blur-sm border border-gray-200 shadow-sm hover:shadow-md transition-all cursor-pointer"
+      title={statusTooltip}
     >
-      {/* نقطة الحالة */}
-      <div className={`status-dot ${statusClass}`}></div>
+      <div className="relative">
+        <div className={`w-2.5 h-2.5 rounded-full ${statusColor} ${!isConnected ? 'animate-pulse' : ''}`}></div>
+        {isConnected && (
+          <div className={`absolute inset-0 w-2.5 h-2.5 rounded-full ${statusColor} animate-ping opacity-75`}></div>
+        )}
+      </div>
 
-      {/* أيقونة */}
-      {getStatusIcon()}
-
-      {/* نص الحالة */}
-      <span>{getStatusText()}</span>
-
-      {/* زر إعادة الاتصال اليدوي */}
-      {isDisconnected && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleReconnect();
-          }}
-          className="ml-1 p-1 rounded-full hover:bg-red-200 transition-colors"
-          title={lang === 'ar' ? 'إعادة الاتصال' : 'Reconnect'}
-        >
-          <RefreshCw size={12} />
-        </button>
+      {isConnected ? (
+        <Wifi size={14} className="text-green-600" />
+      ) : (
+        <WifiOff size={14} className="text-red-600" />
       )}
 
-      {/* مؤشر إعادة الاتصال */}
-      {isReconnectingStatus && (
-        <div className="ml-1">
-          {lang === 'ar' ? '🔄' : '🔄'}
-        </div>
-      )}
+      <span className={`text-xs font-semibold ${isConnected ? 'text-green-700' : 'text-red-700'}`}>
+        {statusText}
+      </span>
     </div>
   );
 }

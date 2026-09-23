@@ -20,7 +20,6 @@ import ConnectionStatus from './components/ConnectionStatus';
 import UserAvatar from './components/UserAvatar';
 import BranchSelector from './components/BranchSelector';
 import LiveClock from './components/LiveClock';
-import DatabaseSetup from './pages/DatabaseSetup';
 
 // Context
 interface AppContextType {
@@ -2448,7 +2447,6 @@ export default function App() {
     <AppContext.Provider value={{ lang, setLang, user, setUser, refresh }}>
       <HashRouter>
         <Routes>
-          <Route path="/setup-db" element={<DatabaseSetup />} />
           <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
           <Route path="/" element={
             <ProtectedRoute requiredPermission="view_dashboard">
