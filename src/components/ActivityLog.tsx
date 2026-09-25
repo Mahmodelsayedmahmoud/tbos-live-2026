@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Activity, Filter, Download, Trash2 } from 'lucide-react';
 import { auditLogManager, ActivityLog, ActivityType } from '../lib/auditLog';
 import { exportAuditLog } from '../lib/exportUtils';
@@ -101,7 +101,8 @@ export default function ActivityLogViewer({ lang }: ActivityLogViewerProps) {
     return colors[type] || 'bg-gray-100 text-gray-800';
   };
 
-  const stats = auditLogManager.getStats();
+  // استخدام useMemo لحساب الإحصائيات مرة واحدة فقط
+  const stats = useMemo(() => auditLogManager.getStats(), [logs]);
 
   return (
     <div className="space-y-6">
