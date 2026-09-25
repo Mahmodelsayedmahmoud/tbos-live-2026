@@ -22,12 +22,6 @@ export default function DashboardKPIs({ lang }: DashboardKPIsProps) {
     avgTripTime: 0,
   });
 
-  useEffect(() => {
-    updateStats();
-    const interval = setInterval(updateStats, 5000); // تحديث كل 5 ثواني
-    return () => clearInterval(interval);
-  }, []);
-
   const updateStats = () => {
     const trips = db.getTrips();
     const couriers = db.getCouriers();
@@ -61,6 +55,12 @@ export default function DashboardKPIs({ lang }: DashboardKPIsProps) {
       avgTripTime,
     });
   };
+
+  useEffect(() => {
+    updateStats();
+    const interval = setInterval(updateStats, 5000); // تحديث كل 5 ثواني
+    return () => clearInterval(interval);
+  }, []);
 
   const kpis = [
     {

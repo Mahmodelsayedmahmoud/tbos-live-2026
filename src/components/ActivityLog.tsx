@@ -13,14 +13,6 @@ export default function ActivityLogViewer({ lang }: ActivityLogViewerProps) {
   const [filterType, setFilterType] = useState<ActivityType | 'ALL'>('ALL');
   const [filterDate, setFilterDate] = useState<string>('');
 
-  useEffect(() => {
-    updateLogs();
-    const unsubscribe = auditLogManager.subscribe(() => {
-      updateLogs();
-    });
-    return unsubscribe;
-  }, [filterType, filterDate]);
-
   const updateLogs = () => {
     let filteredLogs = auditLogManager.getLogs();
 
@@ -44,6 +36,14 @@ export default function ActivityLogViewer({ lang }: ActivityLogViewerProps) {
 
     setLogs(filteredLogs);
   };
+
+  useEffect(() => {
+    updateLogs();
+    const unsubscribe = auditLogManager.subscribe(() => {
+      updateLogs();
+    });
+    return unsubscribe;
+  }, [filterType, filterDate]);
 
   const handleExport = () => {
     try {
