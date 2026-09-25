@@ -17,6 +17,7 @@ import ConnectionStatus from './components/ConnectionStatus';
 import UserAvatar from './components/UserAvatar';
 import BranchSelector from './components/BranchSelector';
 import LiveClock from './components/LiveClock';
+import ReviewPage from './pages/Review';
 
 // Context
 interface AppContextType {
@@ -96,6 +97,7 @@ function Layout({ children }: { children: React.ReactNode }) {
     { path: '/cashier', icon: ClipboardList, label: 'nav.cashier', perm: 'view_cashier' },
     { path: '/queue', icon: Clock, label: 'nav.queue', perm: 'view_queue' },
     { path: '/reports', icon: BarChart3, label: 'nav.reports', perm: 'view_reports' },
+    { path: '/review', icon: CheckCircle, label: 'nav.review', perm: 'view_reports' },
     { path: '/users', icon: Users, label: 'nav.users', perm: 'view_users' },
     { path: '/settings', icon: Settings, label: 'nav.settings', perm: 'view_settings' },
   ];
@@ -2231,6 +2233,7 @@ export default function App() {
           <Route path="/cashier" element={<ProtectedRoute requiredPermission="view_cashier"><Layout><CashierPage /></Layout></ProtectedRoute>} />
           <Route path="/queue" element={<ProtectedRoute requiredPermission="view_queue"><Layout><QueuePage /></Layout></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute requiredPermission="view_reports"><Layout><ReportsPage /></Layout></ProtectedRoute>} />
+          <Route path="/review" element={<ProtectedRoute requiredPermission="view_reports"><Layout><ReviewPage /></Layout></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute requiredPermission="view_users"><Layout><UsersPage /></Layout></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute requiredPermission="view_settings"><Layout><SettingsPage /></Layout></ProtectedRoute>} />
         </Routes>

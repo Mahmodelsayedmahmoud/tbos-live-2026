@@ -13,6 +13,7 @@ const translations: Record<string, Record<Lang, string>> = {
   'nav.cashier': { ar: 'الكاشير', en: 'Cashier' },
   'nav.queue': { ar: 'الطابور', en: 'Queue' },
   'nav.reports': { ar: 'التقارير', en: 'Reports' },
+  'nav.review': { ar: 'المراجعة النهائية', en: 'Final Review' },
   'nav.performance': { ar: 'تقرير الأداء', en: 'Performance Report' },
   'nav.dashboard_kpis': { ar: 'لوحة المؤشرات', en: 'Dashboard KPIs' },
   'nav.activity_log': { ar: 'سجل الأنشطة', en: 'Activity Log' },
