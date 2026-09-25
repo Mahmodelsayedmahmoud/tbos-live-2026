@@ -1,5 +1,31 @@
-// TBOS Database Layer - localStorage based
-// Simple and reliable - no external dependencies
+// TBOS Database Layer
+// يدعم Supabase مع Fallback آمن إلى localStorage
+
+import { supabase, checkSupabaseConnection } from './supabase';
+
+// متغير لتتبع حالة الاتصال بـ Supabase
+let useSupabase = false;
+let supabaseChecked = false;
+
+// التحقق من توفر Supabase
+async function checkSupabaseAvailability(): Promise<boolean> {
+  if (supabaseChecked) return useSupabase;
+  
+  try {
+    useSupabase = await checkSupabaseConnection();
+    supabaseChecked = true;
+    console.log(useSupabase ? '🌐 Using Supabase' : '💾 Using localStorage');
+    return useSupabase;
+  } catch (error) {
+    console.warn('Supabase not available, using localStorage:', error);
+    useSupabase = false;
+    supabaseChecked = true;
+    return false;
+  }
+}
+
+// بدء التحقق عند تحميل الملف
+checkSupabaseAvailability();
 
 export type UserRole = 'ADMIN' | 'SUPERVISOR' | 'WAREHOUSE' | 'CASHIER' | 'COURIER' | 'VIEWER';
 export type CourierStatus = 'AVAILABLE' | 'ON_TRIP' | 'WAITING' | 'IN_CASHIER' | 'COMPLETED';
