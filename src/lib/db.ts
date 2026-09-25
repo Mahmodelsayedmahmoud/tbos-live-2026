@@ -1,31 +1,6 @@
 // TBOS Database Layer
-// يدعم Supabase مع Fallback آمن إلى localStorage
-
-import { supabase, checkSupabaseConnection } from './supabase';
-
-// متغير لتتبع حالة الاتصال بـ Supabase
-let useSupabase = false;
-let supabaseChecked = false;
-
-// التحقق من توفر Supabase
-async function checkSupabaseAvailability(): Promise<boolean> {
-  if (supabaseChecked) return useSupabase;
-  
-  try {
-    useSupabase = await checkSupabaseConnection();
-    supabaseChecked = true;
-    console.log(useSupabase ? '🌐 Using Supabase' : '💾 Using localStorage');
-    return useSupabase;
-  } catch (error) {
-    console.warn('Supabase not available, using localStorage:', error);
-    useSupabase = false;
-    supabaseChecked = true;
-    return false;
-  }
-}
-
-// بدء التحقق عند تحميل الملف
-checkSupabaseAvailability();
+// يستخدم localStorage كقاعدة بيانات أساسية
+// بسيط وآمن - بدون اعتماد على خدمات خارجية
 
 export type UserRole = 'ADMIN' | 'SUPERVISOR' | 'WAREHOUSE' | 'CASHIER' | 'COURIER' | 'VIEWER';
 export type CourierStatus = 'AVAILABLE' | 'ON_TRIP' | 'WAITING' | 'IN_CASHIER' | 'COMPLETED';
@@ -459,7 +434,7 @@ export function finishStage(tripId: string, stage: StageName): { success: boolea
     const courier = state.couriers.find(c => c.id === trip.courierId);
     if (courier) courier.status = 'AVAILABLE';
     const branch = state.branches.find(b => b.id === trip.branchId);
-    if (branch && branch.cashierOccupancy > 0) {
+    if (branch && (branch.cashierOccupancy ?? 0) > 0) {
       branch.cashierOccupancy--;
       promoteFromQueue(branch.id);
     }
@@ -480,10 +455,12 @@ export function getQueue(branchId?: string): QueueRecord[] {
 }
 
 export function getQueuePosition(tripId: string): number {
-  const branch = state.trips.find(t => t.id === tripId)?.branchId;
-  if (!branch) return 0;
-  const waiting = state.queue.filter(q => q.branchId === branch && q.status === 'WAITING');
-  return waiting.findIndex(q => q.tripId === tripId) + 1;
+  const trip = state.trips.find(t => t.id === tripId);
+  const branchId = trip?.branchId;
+  if (!branchId) return 0;
+  const waiting = state.queue.filter(q => q.branchId === branchId && q.status === 'WAITING');
+  const index = waiting.findIndex(q => q.tripId === tripId);
+  return index >= 0 ? index + 1 : 0;
 }
 
 export function addToQueue(tripId: string, branchId: string, priority: number = 5): QueueRecord | null {
@@ -508,11 +485,11 @@ export function addToQueue(tripId: string, branchId: string, priority: number = 
 export function promoteFromQueue(branchId: string): QueueRecord | null {
   const branch = state.branches.find(b => b.id === branchId);
   if (!branch) return null;
-  if (branch.cashierOccupancy >= branch.cashierCapacity) return null;
+  if ((branch.cashierOccupancy ?? 0) >= (branch.cashierCapacity ?? 1)) return null;
   const waitingQueue = state.queue
     .filter(q => q.branchId === branchId && q.status === 'WAITING')
     .sort((a, b) => {
-      if (a.priority !== b.priority) return a.priority - b.priority;
+      if ((a.priority ?? 5) !== (b.priority ?? 5)) return (a.priority ?? 5) - (b.priority ?? 5);
       return new Date(a.enteredAt).getTime() - new Date(b.enteredAt).getTime();
     });
   if (waitingQueue.length === 0) return null;
@@ -576,11 +553,11 @@ export function runDecisionEngine(tripId: string): SystemDecision | null {
     decision = 'WAIT_CONGESTION';
     reasonAr = 'الفرع متوقف مؤقتاً';
     reasonEn = 'Branch is paused';
-  } else if (branch.dockOccupancy >= branch.dockCapacity) {
+  } else if ((branch.dockOccupancy ?? 0) >= (branch.dockCapacity ?? 1)) {
     decision = 'WAIT_CONGESTION';
     reasonAr = 'يوجد ازدحام تشغيلي';
     reasonEn = 'Operational congestion detected';
-  } else if (branch.cashierOccupancy >= branch.cashierCapacity) {
+  } else if ((branch.cashierOccupancy ?? 0) >= (branch.cashierCapacity ?? 1)) {
     decision = 'WAIT_CASHIER';
     reasonAr = 'الكاشير ممتلئ - انتظر على الرصيف';
     reasonEn = 'Cashier full - wait on dock';
@@ -699,7 +676,7 @@ export function addInboundItem(
   unit: string,
   notes: string = ''
 ): InboundItem | null {
-  const inbound = state.inbound.find(i => i.id === inboundId);
+  const inbound = state.inbound?.find(i => i.id === inboundId);
   if (!inbound) return null;
   const item: InboundItem = {
     id: generateId(),
@@ -710,15 +687,16 @@ export function addInboundItem(
     unit,
     notes,
   };
+  inbound.items = inbound.items || [];
   inbound.items.push(item);
   saveState(state);
   return item;
 }
 
 export function removeInboundItem(inboundId: string, itemId: string): boolean {
-  const inbound = state.inbound.find(i => i.id === inboundId);
+  const inbound = state.inbound?.find(i => i.id === inboundId);
   if (!inbound) return false;
-  const idx = inbound.items.findIndex(it => it.id === itemId);
+  const idx = inbound.items?.findIndex(it => it.id === itemId) ?? -1;
   if (idx === -1) return false;
   inbound.items.splice(idx, 1);
   saveState(state);
@@ -749,21 +727,23 @@ export function hasPermission(role: UserRole, permission: string): boolean {
 
 // ============ DASHBOARD STATS ============
 export function getDashboardStats(branchId?: string) {
-  let trips = [...state.trips];
-  if (branchId) trips = trips.filter(t => t.branchId === branchId);
+  const trips = [...(state.trips || [])];
+  const filteredTrips = branchId ? trips.filter(t => t.branchId === branchId) : trips;
   const today = new Date().toDateString();
-  const todayTrips = trips.filter(t => new Date(t.arrivalAt).toDateString() === today);
-  const activeTrips = trips.filter(t => t.status === 'ACTIVE');
+  const todayTrips = filteredTrips.filter(t => t.arrivalAt && new Date(t.arrivalAt).toDateString() === today);
+  const activeTrips = filteredTrips.filter(t => t.status === 'ACTIVE');
   const onDock = activeTrips.filter(t => t.currentStage === 'DOCK');
   const inPrep = activeTrips.filter(t => t.currentStage === 'PREPARATION');
   const inInventory = activeTrips.filter(t => t.currentStage === 'INVENTORY');
   const inLoading = activeTrips.filter(t => t.currentStage === 'LOADING');
   const inCashier = activeTrips.filter(t => t.currentStage === 'CASHIER');
-  const waitingTrips = trips.filter(t => t.status === 'WAITING');
-  const completedTrips = trips.filter(t => t.status === 'COMPLETED');
+  const waitingTrips = filteredTrips.filter(t => t.status === 'WAITING');
+  const completedTrips = filteredTrips.filter(t => t.status === 'COMPLETED');
   const avgTripTime = completedTrips.length > 0
     ? completedTrips.reduce((sum, t) => {
-        if (t.completedAt) return sum + (new Date(t.completedAt).getTime() - new Date(t.arrivalAt).getTime()) / 1000;
+        if (t.completedAt && t.arrivalAt) {
+          return sum + (new Date(t.completedAt).getTime() - new Date(t.arrivalAt).getTime()) / 1000;
+        }
         return sum;
       }, 0) / completedTrips.length
     : 0;

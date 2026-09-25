@@ -27,14 +27,23 @@ export default function BranchSelector({ lang }: BranchSelectorProps) {
     }
   }, [branches, selectedBranch]);
 
-  const currentBranch = branches.find(b => b.id === selectedBranch);
+  const currentBranch = branches?.find(b => b.id === selectedBranch);
 
   const handleBranchSelect = (branchId: string) => {
     setSelectedBranch(branchId);
     setIsOpen(false);
   };
 
-  if (!currentBranch) return null;
+  if (!currentBranch) {
+    return (
+      <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-gray-50 border border-gray-200">
+        <MapPin size={14} className="text-gray-400" />
+        <div className="text-xs text-gray-500">
+          {lang === 'ar' ? 'لا توجد فروع' : 'No branches'}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative">
