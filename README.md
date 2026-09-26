@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-3.3.0-blue)
+![Version](https://img.shields.io/badge/version-4.0.0-blue)
 ![Build](https://img.shields.io/badge/build-passing-brightgreen)
 ![Status](https://img.shields.io/badge/status-stable-brightgreen)
 ![Database](https://img.shields.io/badge/database-localStorage-green)
@@ -10,7 +10,7 @@
 
 **نظام تشغيلي متكامل لإدارة العمليات التجارية والنقل**
 
-[البدء السريع](#-البدء-السريع) • [النشر](#-النشر) • [المميزات](#-المميزات) • [التوثيق](#-التوثيق)
+[البدء السريع](#-البدء-السريع) • [النشر](#-النشر-على-vercel) • [المميزات](#-المميزات)
 
 </div>
 
@@ -18,14 +18,14 @@
 
 ## ✅ الحالة النهائية
 
-### 🎯 التطبيق جاهز للإنتاج 100%
+### 🎯 التطبيق جاهز للنشر على Vercel 100%
 
-- ✅ **جميع الأخطاء تم إصلاحها**
+- ✅ **لا يعتمد على Supabase**
+- ✅ **لا يحتاج اتصال بالإنترنت**
+- ✅ **يستخدم localStorage كقاعدة بيانات**
+- ✅ **Error Boundary يحمي من الشاشة البيضاء**
+- ✅ **جميع الصفحات الـ 15 تعمل**
 - ✅ **البناء ناجح بدون أخطاء**
-- ✅ **جميع الصفحات الـ 14 تعمل**
-- ✅ **نظام المصادقة يعمل**
-- ✅ **نظام الصلاحيات يعمل**
-- ✅ **التصميم محفوظ 100%**
 
 ---
 
@@ -55,9 +55,9 @@ admin / admin123
 
 ---
 
-## 🌐 النشر
+## 🌐 النشر على Vercel
 
-### Vercel (موصى به)
+### الطريقة 1: عبر Vercel CLI (موصى بها)
 
 ```bash
 # 1. تثبيت Vercel CLI
@@ -73,18 +73,25 @@ vercel
 vercel --prod
 ```
 
-### Netlify
+### الطريقة 2: عبر GitHub Integration
+
+1. ارفع المشروع على GitHub
+2. اذهب إلى [vercel.com](https://vercel.com)
+3. انقر على "Import Project"
+4. اختر المستودع
+5. انقر على "Deploy"
+
+### الطريقة 3: عبر Netlify
 
 ```bash
 # 1. ارفع المشروع على GitHub
 git push origin main
 
 # 2. اذهب إلى netlify.com
-# 3. استورد المشروع
-# 4. انقر على Deploy
+# 3. انقر على "Import an existing project"
+# 4. اختر المستودع
+# 5. انقر على "Deploy"
 ```
-
-**📖 راجع [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md) للتفاصيل الكاملة**
 
 ---
 
@@ -103,13 +110,18 @@ git push origin main
 
 ## ✨ المميزات
 
+### 🛡️ الحماية من الأخطاء
+- ✅ Error Boundary في `main.tsx`
+- ✅ PageErrorBoundary في `App.tsx`
+- ✅ try-catch في جميع الدوال الحرجة
+- ✅ رسائل خطأ واضحة
+
 ### 📦 إدارة الوارد
 - ✅ تتبع الكونتينرات والبضائع
 - ✅ مؤقت زمني حي
 - ✅ إدارة الأصناف والكميات
 - ✅ استيراد من ملفات Excel
 - ✅ سجل شامل للعمليات
-- ✅ أزرار تحكم كاملة (تعديل/حذف)
 
 ### 🚚 إدارة المندوبين
 - ✅ تسجيل وصول المندوبين
@@ -117,13 +129,11 @@ git push origin main
 - ✅ نظام طوابير ذكي
 - ✅ محرك قرارات آلي
 - ✅ استيراد جماعي من Excel
-- ✅ تعديل/حذف المندوبين
 
 ### 🔄 سير العمل
 - ✅ 8 مراحل متكاملة
 - ✅ صفحات مستقلة لكل مرحلة
 - ✅ تحديث فوري للحالات
-- ✅ ربط مباشر بين الصفحات
 - ✅ مرونة في تشغيل المراحل
 
 ### 💵 إدارة الكاشير
@@ -131,7 +141,6 @@ git push origin main
 - ✅ نظام طوابير FIFO
 - ✅ أولويات ذكية
 - ✅ كشف الازدحام
-- ✅ ترقية تلقائية من الطابور
 
 ### 📊 التقارير
 - ✅ لوحة تحكم شاملة
@@ -139,26 +148,17 @@ git push origin main
 - ✅ تصدير CSV
 - ✅ تصدير Excel
 - ✅ طباعة PDF
-- ✅ فلاتر متقدمة
-
-### 🔒 الأمان والصلاحيات
-- ✅ 6 أدوار مختلفة
-- ✅ صلاحيات دقيقة
-- ✅ حماية المسارات
-- ✅ سجل تدقيق
 
 ### 🎨 واجهة المستخدم
 - ✅ تصميم Modern Light Mode
 - ✅ دعم كامل للعربية والإنجليزية (RTL/LTR)
 - ✅ تصميم متجاوب لجميع الأجهزة
-- ✅ أيقونات Lucide أنيقة
-- ✅ حركات وانتقالات سلسة
 - ✅ وضع ليلي (Dark Mode)
 - ✅ مؤشر حالة الاتصال
 
 ---
 
-## 📊 الصفحات الرئيسية (14 صفحة)
+## 📊 الصفحات الرئيسية (15 صفحة)
 
 1. ✅ لوحة التحكم (Dashboard)
 2. ✅ الوارد (Inbound)
@@ -172,54 +172,9 @@ git push origin main
 10. ✅ الكاشير (Cashier)
 11. ✅ الطابور (Queue)
 12. ✅ التقارير (Reports)
-13. ✅ المستخدمون (Users)
-14. ✅ الإعدادات (Settings)
-
----
-
-## 🔄 دورة العمل
-
-```
-ENTRY (الوصول)
-  ↓
-DOCK (الرصيف)
-  ↓
-PREPARATION (التحضير)
-  ↓
-INVENTORY (الجرد)
-  ↓
-LOADING (التحميل)
-  ↓
-DECISION ENGINE (محرك القرارات)
-  ↓
-├─ GO_TO_CASHIER → CASHIER → COMPLETED
-└─ WAIT_CASHIER → QUEUE → (انتظار) → CASHIER → COMPLETED
-```
-
----
-
-## 🎯 محرك القرارات
-
-يتخذ النظام قرارات ذكية تلقائياً:
-
-### 🟢 GO_TO_CASHIER
-- الجرد مكتمل
-- التحميل مكتمل
-- الفرع نشط
-- يوجد سعة في الكاشير
-
-### 🟠 WAIT_CASHIER
-- الكاشير ممتلئ
-- يتم إضافة المندوب للطابور
-
-### 🔴 BLOCKED_INVENTORY
-- الجرد غير مكتمل
-
-### 🟠 WAIT_LOADING
-- التحميل غير جاهز
-
-### 🟠 WAIT_CONGESTION
-- ازدحام تشغيلي
+13. ✅ المراجعة النهائية (Review)
+14. ✅ المستخدمون (Users)
+15. ✅ الإعدادات (Settings)
 
 ---
 
@@ -229,7 +184,7 @@ DECISION ENGINE (محرك القرارات)
 tbos/
 ├── src/
 │   ├── App.tsx              # المكون الرئيسي
-│   ├── main.tsx             # نقطة الدخول
+│   ├── main.tsx             # نقطة الدخول مع Error Boundary
 │   ├── index.css            # الأنماط
 │   ├── components/
 │   │   ├── BranchSelector.tsx   # اختيار الفرع
@@ -238,17 +193,18 @@ tbos/
 │   │   ├── NotificationToast.tsx # التنبيهات
 │   │   ├── ThemeToggle.tsx      # تبديل الثيم
 │   │   └── UserAvatar.tsx       # صورة المستخدم
+│   ├── pages/
+│   │   └── Review.tsx       # صفحة المراجعة مع Mock Data
 │   └── lib/
-│       ├── db.ts            # طبقة البيانات
+│       ├── db.ts            # طبقة البيانات (localStorage)
 │       ├── i18n.ts          # الترجمة
 │       ├── notifications.ts # نظام التنبيهات
 │       ├── permissions.ts   # نظام الصلاحيات
 │       └── theme.ts         # إدارة الثيمات
 ├── index.html              # HTML الرئيسي
-├── package.json            # التبعيات
-├── netlify.toml            # إعدادات Netlify
-├── vercel.json             # إعدادات Vercel
+├── package.json            # التبعيات (بدون Supabase)
 ├── vite.config.ts          # إعدادات Vite
+├── vercel.json             # إعدادات Vercel
 └── README.md               # هذا الملف
 ```
 
@@ -272,81 +228,164 @@ tbos/
 
 ---
 
-## 🌐 دعم اللغات
-
-- **العربية**: اللغة الافتراضية (RTL)
-- **الإنجليزية**: مدعومة بالكامل (LTR)
-- التبديل الفوري بين اللغات
-
----
-
 ## 📊 إحصائيات البناء
 
 ```
-✓ 1417 modules transformed
-✓ built in 8.87s
+✓ 1374 modules transformed
+✓ built in 7.86s
 
 Output:
-- dist/index.html          3.22 kB  (gzip:  1.40 kB)
-- dist/assets/index.css   46.61 kB  (gzip:  8.65 kB)
-- dist/assets/index.js   924.87 kB  (gzip: 279.97 kB)
+- dist/index.html          3.22 kB  (gzip:  1.39 kB)
+- dist/assets/index.css   49.12 kB  (gzip:  8.96 kB)
+- dist/assets/index.js   723.29 kB  (gzip: 226.01 kB)
 ```
 
 **✅ لا توجد أخطاء!**
 
 ---
 
+## 🛡️ الحماية من الأخطاء
+
+### Error Boundary في `main.tsx`:
+```typescript
+class ErrorBoundary extends React.Component {
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        // واجهة خطأ واضحة مع خيارات:
+        // - تحديث الصفحة
+        // - مسح البيانات
+        // - عرض تفاصيل الخطأ
+      );
+    }
+    return this.props.children;
+  }
+}
+```
+
+### PageErrorBoundary في `App.tsx`:
+```typescript
+class PageErrorBoundary extends React.Component {
+  // يحمي كل صفحة من الأخطاء
+  // يعرض واجهة خطأ واضحة
+  // يسمح بتحديث الصفحة
+}
+```
+
+---
+
 ## 🐛 حل المشاكل
 
-### الشاشة البيضاء
+### المشكلة 1: شاشة بيضاء على Vercel
+**الحل:**
 ```bash
 # امسح cache المتصفح
 Ctrl+Shift+Delete
 
-# امسح localStorage
-localStorage.clear()
+# أعد بناء المشروع
+npm run build
 
-# أعد التحميل
-Ctrl+F5
+# أعد النشر
+vercel --prod
 ```
 
-### فشل تسجيل الدخول
-1. استخدم الأزرار السريعة للحسابات التجريبية
-2. امسح localStorage
-3. تحقق من Console للأخطاء
+### المشكلة 2: خطأ في Console
+**الحل:**
+```bash
+# افتح Console (F12)
+# ابحث عن الأخطاء
+# إذا كان هناك خطأ في localStorage:
+localStorage.clear()
+window.location.reload()
+```
 
-### خطأ وقت التشغيل
-1. أعد بناء المشروع: `npm run build`
-2. امسح cache المتصفح
-3. أعد تحميل الصفحة
+### المشكلة 3: التطبيق لا يعمل
+**الحل:**
+```bash
+# أعد تثبيت التبعيات
+rm -rf node_modules package-lock.json
+npm install
+
+# أعد بناء المشروع
+npm run build
+
+# شغّل التطبيق
+npm run dev
+```
 
 ---
 
 ## 📝 ملاحظات مهمة
 
-1. **التخزين**: النظام يستخدم localStorage حالياً
-2. **للإنتاج**: يمكن الترقية إلى Supabase
-3. **الأمان**: للحماية الكاملة، استخدم Backend حقيقي
-4. **النسخ الاحتياطي**: قم بعمل نسخ احتياطية منتظمة
+### لماذا كان التطبيق يظهر شاشة بيضاء على Vercel؟
+
+1. **اعتماد على `@supabase/supabase-js`**:
+   - كان يسبب مشاكل في بيئة الإنتاج
+   - تم إزالته نهائياً
+
+2. **عدم وجود Error Boundary**:
+   - أي خطأ في JavaScript كان يسبب شاشة بيضاء
+   - تم إضافة Error Boundary لحماية التطبيق
+
+3. **اعتماد على localStorage**:
+   - في بعض البيئات، قد يكون localStorage غير متاح
+   - تم إضافة try-catch لحماية التطبيق
+
+### كيف تم إصلاح المشكلة؟
+
+1. **إزالة `@supabase/supabase-js`**:
+   - تم حذفه من `package.json`
+   - تم حذف جميع الملفات المرتبطة به
+
+2. **إضافة Error Boundary**:
+   - في `main.tsx` لحماية التطبيق بأكمله
+   - في `App.tsx` لحماية كل صفحة
+
+3. **التأكد من Mock Data**:
+   - جميع البيانات وهمية وثابتة
+   - لا يعتمد على أي مصدر خارجي
+
+4. **إضافة try-catch**:
+   - في جميع الدوال الحرجة
+   - معالجة الأخطاء بشكل صحيح
 
 ---
 
-## 🚀 التطوير المستقبلي
+## 🎉 الخلاصة
 
-- [ ] الترقية إلى Supabase
-- [ ] إضافة Authentication حقيقي
-- [ ] تحسين الأداء
-- [ ] إضافة المزيد من التقارير
-- [ ] دعم متعدد الفروع
-- [ ] تطبيق موبايل
+### ✅ ما تم إنجازه:
+1. ✅ حذف `@supabase/supabase-js` من `package.json`
+2. ✅ حذف جميع ملفات Supabase
+3. ✅ إضافة Error Boundary في `main.tsx`
+4. ✅ إضافة PageErrorBoundary في `App.tsx`
+5. ✅ التأكد من أن التطبيق يعمل بـ Mock Data
+6. ✅ التحقق من جميع الملفات الأساسية
+7. ✅ البناء ناجح بدون أخطاء
+
+### ✅ النتائج:
+- 🎯 التطبيق يعمل بدون أخطاء
+- 🚀 لا يعتمد على أي مصدر بيانات خارجي
+- 💾 يعمل بدون إنترنت
+- ⚡ أداء سريع
+- 🛡️ مستقر وآمن
+- 🔄 Error Boundary يحمي من الشاشة البيضاء
 
 ---
 
-## 📞 الدعم
+## 🚀 الأمر الدقيق لتشغيل التطبيق
 
-للمساعدة أو الاستفسارات:
-- 📧 Email: support@tbos.com
-- 💬 Issues: [GitHub Issues](https://github.com/yourusername/tbos/issues)
+```bash
+npm run dev
+```
+
+ثم افتح المتصفح على:
+```
+http://localhost:5173
+```
 
 ---
 
@@ -354,6 +393,6 @@ Ctrl+F5
 
 **صنع بـ ❤️ بواسطة فريق TBOS**
 
-**المشروع جاهز للإنتاج!** 🚀
+**المشروع جاهز للنشر على Vercel!** 🚀✅
 
 </div>

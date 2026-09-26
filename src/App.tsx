@@ -40,6 +40,47 @@ function useApp() {
   return React.useContext(AppContext);
 }
 
+// Error Boundary للصفحات
+class PageErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback?: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode; fallback?: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Page Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center p-8 card">
+            <AlertTriangle size={64} className="text-red-500 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-gray-800 mb-2">حدث خطأ في تحميل الصفحة</h3>
+            <p className="text-gray-600 mb-4">يرجى تحديث الصفحة أو العودة للرئيسية</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="btn btn-primary"
+            >
+              تحديث الصفحة
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 // Protected Route
 function ProtectedRoute({ children, requiredPermission }: { children: React.ReactNode; requiredPermission?: permissions.Permission }) {
   const { user, lang } = useApp();
@@ -68,7 +109,7 @@ function ProtectedRoute({ children, requiredPermission }: { children: React.Reac
     );
   }
   
-  return <>{children}</>;
+  return <PageErrorBoundary>{children}</PageErrorBoundary>;
 }
 
 // Layout
