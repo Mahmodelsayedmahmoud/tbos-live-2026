@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
+  base: './', // المسارات النسبية للنشر على Vercel
   plugins: [react(), tailwindcss()],
   server: {
     host: "0.0.0.0",
