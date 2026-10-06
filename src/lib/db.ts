@@ -765,11 +765,21 @@ export function resetDatabase(): void {
   state = getInitialState();
   saveState(state);
 }
-export const getDatabaseState = async () => {
-  const { data, error } = await supabase.from('trips').select('*');
-  if (error) {
-    console.error('Error fetching data from Supabase:', error);
-    return null;
+export const getDatabaseState = async (): Promise<DBState> => {
+  try {
+    const { data, error } = await supabase.from('trips').select('*');
+    if (error) {
+      console.error('Error fetching data from Supabase:', error);
+      return loadState();
+    }
+    return {
+      ...loadState(),
+      trips: data || []
+    };
+  } catch (err) {
+    console.error('Unexpected error:', err);
+    return loadState();
   }
-  return data;
 };
+
+    
