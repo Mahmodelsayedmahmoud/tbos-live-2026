@@ -1,5 +1,5 @@
-// TBOS Database Layer
-// يستخدم localStorage كقاعدة بيانات أساسية
+  import { supabase } from './supabase';
+
 // بسيط وآمن - بدون اعتماد على خدمات خارجية
 
 export type UserRole = 'ADMIN' | 'SUPERVISOR' | 'WAREHOUSE' | 'CASHIER' | 'COURIER' | 'VIEWER';
@@ -765,3 +765,11 @@ export function resetDatabase(): void {
   state = getInitialState();
   saveState(state);
 }
+export const getDatabaseState = async () => {
+  const { data, error } = await supabase.from('trips').select('*');
+  if (error) {
+    console.error('Error fetching data from Supabase:', error);
+    return null;
+  }
+  return data;
+};
