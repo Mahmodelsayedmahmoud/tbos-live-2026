@@ -1,4 +1,4 @@
-  import { supabase } from './supabase';
+ import { supabase } from './supabase';
 
 // بسيط وآمن - بدون اعتماد على خدمات خارجية
 
